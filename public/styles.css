@@ -374,6 +374,17 @@ h2 {
   font-weight: 500;
 }
 
+/* Legal Disclaimer Footer */
+.legal-disclaimer {
+  text-align: center;
+  padding: 24px 32px;
+  font-size: 0.7rem;
+  color: #888;
+  line-height: 1.5;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .container {

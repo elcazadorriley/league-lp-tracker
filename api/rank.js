@@ -21,8 +21,14 @@ const REGIONS = {
 
 module.exports = async (req, res) => {
   try {
-    const { params } = req.query;
-    const [region, gameName, tagLine] = params;
+    // Parse path: /api/rank/REGION/GAMENAME/TAGLINE
+    const pathParts = req.url.split('/').filter(Boolean);
+    // pathParts = ['api', 'rank', 'NA', 'Keebles', '6969']
+    const [, , region, gameName, tagLine] = pathParts;
+
+    if (!region || !gameName || !tagLine) {
+      return res.status(400).json({ error: 'Missing parameters. Use /api/rank/REGION/GAMENAME/TAGLINE' });
+    }
 
     const regionConfig = REGIONS[region.toUpperCase()];
     if (!regionConfig) {

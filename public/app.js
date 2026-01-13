@@ -414,11 +414,11 @@ function getLPChangeArrow(player) {
   const diff = lastLP - prevLP;
 
   if (diff > 0) {
-    return { arrow: '▲', class: 'lp-up' };
+    return { arrow: '▲', class: 'lp-up', diff: `+${diff}` };
   } else if (diff < 0) {
-    return { arrow: '▼', class: 'lp-down' };
+    return { arrow: '▼', class: 'lp-down', diff: `${diff}` };
   }
-  return { arrow: '', class: '' };
+  return { arrow: '', class: '', diff: '' };
 }
 
 // Render player cards (sorted by rank)
@@ -452,7 +452,7 @@ function renderPlayers() {
       <div class="player-card" onclick="refreshPlayer(${index})" style="border-left-color: ${color}">
         <div class="player-header">
           <div class="player-name">${player.gameName}</div>
-          ${lpChange.arrow ? `<span class="lp-change ${lpChange.class}">${lpChange.arrow}</span>` : ''}
+          ${lpChange.arrow ? `<span class="lp-change ${lpChange.class}">${lpChange.arrow} ${lpChange.diff}</span>` : ''}
         </div>
         <div class="player-region">${player.region} #${player.tagLine}</div>
         <div class="rank-info">

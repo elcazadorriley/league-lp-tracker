@@ -1,40 +1,10 @@
 VISUAL IDEAS FOR LP TRACKER
 ============================
-Add your ideas below - save the file and tell Claude when ready!
-
-COLORS:
--
-
-LAYOUT:
--Once players are added, the player card should shift to the left, let's make it smaller as well, lots of dead space. 
--This will allow multiple users, so as new cards are added, the list on the left will need to compress and adjust accordingly. 
--sort the player cards by rank
-
-GRAPH STYLE:
--Graph needs to cut dead ranks, as data is acquired it needs to be more intra-rank. Please check out what the League ranking system looks like, that is your Y axis. 
+-Dots still showing if you drag mouse up and off the graph, and either direction horizontally. Just get rid of the dots if you can't fix it. But I still want the timestamp info. 
+-On the legend, lets make everything even, the overview button should be in-line with the others. 
+-Overview should be the default perspective, the toggle, windowed, should instead be called 'Timeline'
 
 
 PLAYER CARDS:
--
-
-ANIMATIONS:
--I want the lines drawn to be cool laser beams, sweet gfx. As plaeyrs are added to the graph, each player will need to be surmized in a key with their color. spice up the site, I want a cool blade runner style. 
-
-Players to track:
--i am sad haha#NA1
--xty#001
--TwoWeekTimeout#NA1
--Tortle#Druid
--Keebles#6969
--Cedric Dube#420
--Humble White Boy#666
-
-To-Do:
--Don't show every data point, solid line unless hovered, the hover should be individual, presenting the players line you are on, and the lp for that given date/TwoWeekTimeout
--References riot design.png, lets go similar font/weight as the username entry field text. I would like a soft white background graph, black graph lines, with a similar design on all the player cards red/black/white
-
-
-CHALLENGE TASK (ONLY ATTEMPT IF YOU HAVE SWAG):
-You have the win loss data on every player. You need to review which matches were ranked. I want you to create an artificial history of each player. 
-Conditions, in League of Legends you are awarded LP on a Win, you lose LP on a loss. This data is available on U.GG and OP.GG for all of the players in my list. 
-The challenge: look these players up and each of the sites and plot an artifical history of their LP dataing back to January 8th, keeping in mind that you should only be looking at ranked matches
+-Any chance we can show a green up arror or red down arrow based on the result of the previous match played?
+-Can we get better ranked images instead of the bubbles? Maybe the actual ranked icons from League?

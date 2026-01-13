@@ -7,7 +7,7 @@ let autoRefreshInterval = null;
 const AUTO_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 const VISIBLE_POINTS = 20; // Number of data points visible at once
 let allTimestamps = []; // Store all timestamps for slider
-let overviewMode = false; // Toggle for showing all data vs windowed view
+let overviewMode = true; // Toggle for showing all data vs timeline view (default: overview)
 
 // HARDCODED TRACKED PLAYERS
 const TRACKED_PLAYERS = [
@@ -394,6 +394,33 @@ function stopAutoRefresh() {
   }
 }
 
+// Get rank icon URL from CommunityDragon CDN
+function getRankIconUrl(tier) {
+  if (!tier || tier === 'UNRANKED') {
+    return null;
+  }
+  // CommunityDragon hosts League rank emblems
+  const tierLower = tier.toLowerCase();
+  return `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default/images/ranked-emblem/emblem-${tierLower}.png`;
+}
+
+// Get LP change arrow for player (based on last 2 history entries)
+function getLPChangeArrow(player) {
+  if (!player.history || player.history.length < 2) {
+    return { arrow: '', class: '' };
+  }
+  const lastLP = player.history[player.history.length - 1].totalLP;
+  const prevLP = player.history[player.history.length - 2].totalLP;
+  const diff = lastLP - prevLP;
+
+  if (diff > 0) {
+    return { arrow: '▲', class: 'lp-up', diff: `+${diff}` };
+  } else if (diff < 0) {
+    return { arrow: '▼', class: 'lp-down', diff: `${diff}` };
+  }
+  return { arrow: '', class: '', diff: '' };
+}
+
 // Render player cards (sorted by rank)
 function renderPlayers() {
   const container = document.getElementById('player-cards');
@@ -414,13 +441,22 @@ function renderPlayers() {
     const losses = rank ? rank.losses : 0;
     const winRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
     const color = PLAYER_COLORS[player.colorIndex];
+    const lpChange = getLPChangeArrow(player);
+
+    const rankIconUrl = getRankIconUrl(tier);
+    const rankBadge = rankIconUrl
+      ? `<img src="${rankIconUrl}" alt="${tier}" class="rank-icon" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="rank-badge rank-${tier.toLowerCase()}" style="display:none">${tier.slice(0, 3)}${division ? '<br>' + division : ''}</div>`
+      : `<div class="rank-badge rank-${tier.toLowerCase()}">${tier.slice(0, 3)}${division ? '<br>' + division : ''}</div>`;
 
     return `
       <div class="player-card" onclick="refreshPlayer(${index})" style="border-left-color: ${color}">
-        <div class="player-name">${player.gameName}</div>
+        <div class="player-header">
+          <div class="player-name">${player.gameName}</div>
+          ${lpChange.arrow ? `<span class="lp-change ${lpChange.class}">${lpChange.arrow} ${lpChange.diff}</span>` : ''}
+        </div>
         <div class="player-region">${player.region} #${player.tagLine}</div>
         <div class="rank-info">
-          <div class="rank-badge rank-${tier.toLowerCase()}">${tier.slice(0, 3)}${division ? '<br>' + division : ''}</div>
+          ${rankBadge}
           <div class="rank-details">
             <div class="rank-tier">${tier} ${division}</div>
             <div class="rank-lp">${lp} LP</div>
@@ -455,6 +491,27 @@ function initChart() {
         axis: 'xy'
       },
       onHover: (event, elements, chartInstance) => {
+        // Check if mouse is within the chart area
+        const chartArea = chartInstance.chartArea;
+        const mouseX = event.x;
+        const mouseY = event.y;
+        const isInChartArea = mouseX >= chartArea.left && mouseX <= chartArea.right &&
+                              mouseY >= chartArea.top && mouseY <= chartArea.bottom;
+
+        if (!isInChartArea) {
+          // Mouse is outside chart area - reset dots
+          chartInstance.data.datasets.forEach(dataset => {
+            dataset.pointRadius = 0;
+          });
+          if (selectedPlayers.size > 0) {
+            applySelectedHighlight(chartInstance);
+          } else {
+            resetChartStyles(chartInstance);
+          }
+          chartInstance.canvas.style.cursor = 'default';
+          return;
+        }
+
         if (elements.length > 0) {
           const hoveredIndex = elements[0].datasetIndex;
 
@@ -487,7 +544,18 @@ function initChart() {
             padding: 16,
             usePointStyle: false,
             generateLabels: (chart) => {
-              return chart.data.datasets.map((dataset, index) => {
+              // Add Timeline toggle as first item
+              const timelineToggle = {
+                text: overviewMode ? '◉ Timeline' : '○ Timeline',
+                fillStyle: overviewMode ? '#e0e0e0' : '#c8102e',
+                strokeStyle: overviewMode ? '#888' : '#c8102e',
+                lineWidth: 2,
+                hidden: false,
+                datasetIndex: -1, // Special index for timeline toggle
+                fontColor: '#1a1a1a'
+              };
+
+              const playerLabels = chart.data.datasets.map((dataset, index) => {
                 const isSelected = selectedPlayers.has(index);
                 return {
                   text: (isSelected ? '☑ ' : '☐ ') + dataset.label,
@@ -499,11 +567,20 @@ function initChart() {
                   fontColor: isSelected ? '#1a1a1a' : '#888'
                 };
               });
+
+              return [timelineToggle, ...playerLabels];
             }
           },
           onClick: (event, legendItem, legend) => {
             const index = legendItem.datasetIndex;
-            // Toggle selection
+
+            // Handle Timeline toggle (index -1)
+            if (index === -1) {
+              toggleOverviewMode();
+              return;
+            }
+
+            // Toggle player selection
             if (selectedPlayers.has(index)) {
               selectedPlayers.delete(index);
             } else {
@@ -633,9 +710,6 @@ function initChart() {
       resetChartStyles(chart);
     }
   });
-
-  // Add Overview button next to legend
-  addOverviewButton();
 }
 
 // Highlight a single line (for hover)
@@ -747,28 +821,13 @@ function updateTimelineLabels(startIndex, endIndex) {
   }
 }
 
-// Add Overview button to chart container
-function addOverviewButton() {
-  const container = document.getElementById('chart-container');
-  if (!container || document.getElementById('overview-btn')) return;
-
-  const btn = document.createElement('button');
-  btn.id = 'overview-btn';
-  btn.textContent = 'Overview';
-  btn.onclick = toggleOverviewMode;
-  container.appendChild(btn);
-}
-
-// Toggle between overview (all data) and windowed view
+// Toggle between overview (all data) and timeline view
 function toggleOverviewMode() {
   overviewMode = !overviewMode;
-  const btn = document.getElementById('overview-btn');
   const slider = document.getElementById('timeline-slider');
 
   if (overviewMode) {
-    // Show all data
-    btn.textContent = 'Windowed';
-    btn.classList.add('active');
+    // Show all data (Overview mode)
     if (slider) slider.disabled = true;
 
     // Set chart to show full range
@@ -778,9 +837,7 @@ function toggleOverviewMode() {
 
     updateTimelineLabels(0, allTimestamps.length - 1);
   } else {
-    // Return to windowed view (most recent data)
-    btn.textContent = 'Overview';
-    btn.classList.remove('active');
+    // Timeline mode - windowed view with slider
     if (slider) {
       slider.disabled = false;
       slider.value = 100;
@@ -795,6 +852,9 @@ function toggleOverviewMode() {
 
     updateTimelineLabels(chart.options.scales.x.min, chart.options.scales.x.max);
   }
+
+  // Update legend to reflect new state
+  chart.update('none');
 }
 
 // Calculate dynamic Y-axis range based on player data
@@ -851,16 +911,25 @@ function updateChart() {
   // Format labels for display
   chart.data.labels = allTimestamps.map(ts => formatTimestamp(ts));
 
-  // Set initial view to most recent data
-  if (allTimestamps.length > VISIBLE_POINTS) {
+  // Set initial view based on overviewMode (default: overview shows all data)
+  const slider = document.getElementById('timeline-slider');
+  if (overviewMode) {
+    // Overview mode - show all data
+    chart.options.scales.x.min = 0;
+    chart.options.scales.x.max = allTimestamps.length - 1;
+    if (slider) slider.disabled = true;
+  } else if (allTimestamps.length > VISIBLE_POINTS) {
+    // Timeline mode - show recent data window
     chart.options.scales.x.min = allTimestamps.length - VISIBLE_POINTS;
     chart.options.scales.x.max = allTimestamps.length - 1;
-    // Set slider to end position
-    const slider = document.getElementById('timeline-slider');
-    if (slider) slider.value = 100;
+    if (slider) {
+      slider.disabled = false;
+      slider.value = 100;
+    }
   } else {
     chart.options.scales.x.min = 0;
     chart.options.scales.x.max = allTimestamps.length - 1;
+    if (slider) slider.disabled = true;
   }
 
   // Update timeline labels

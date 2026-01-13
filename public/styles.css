@@ -139,11 +139,34 @@ h2 {
   transform: translateY(-1px);
 }
 
+.player-card .player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
 .player-card .player-name {
   font-size: 0.9rem;
   font-weight: 600;
   color: #1a1a1a;
-  margin-bottom: 2px;
+}
+
+.player-card .lp-change {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.player-card .lp-up {
+  color: #2e7d32;
+  background: rgba(46, 125, 50, 0.1);
+}
+
+.player-card .lp-down {
+  color: #c8102e;
+  background: rgba(200, 16, 46, 0.1);
 }
 
 .player-card .player-region {
@@ -160,6 +183,13 @@ h2 {
   gap: 12px;
 }
 
+.player-card .rank-icon {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .player-card .rank-badge {
   width: 44px;
   height: 44px;
@@ -171,6 +201,7 @@ h2 {
   font-size: 0.65rem;
   text-align: center;
   line-height: 1.2;
+  flex-shrink: 0;
 }
 
 .player-card .rank-details {
@@ -226,38 +257,6 @@ h2 {
   position: relative;
 }
 
-#overview-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  padding: 6px 14px;
-  background: #fff;
-  color: #666;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  z-index: 10;
-}
-
-#overview-btn:hover {
-  background: #f5f5f5;
-  border-color: #ccc;
-  color: #333;
-}
-
-#overview-btn.active {
-  background: #c8102e;
-  color: #fff;
-  border-color: #c8102e;
-}
-
-#overview-btn.active:hover {
-  background: #a00d25;
-}
 
 /* Timeline Controls */
 .timeline-controls {

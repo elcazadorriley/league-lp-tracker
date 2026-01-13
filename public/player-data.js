@@ -223,7 +223,7 @@ const PRELOADED_PLAYERS = [
     "colorIndex": 7
   },
   {
-    "gameName": "Raial Slur",
+    "gameName": "Racial Slur",
     "tagLine": "9999",
     "region": "NA",
     "soloQueue": null,

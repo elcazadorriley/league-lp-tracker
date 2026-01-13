@@ -414,11 +414,11 @@ function getLPChangeArrow(player) {
   const diff = lastLP - prevLP;
 
   if (diff > 0) {
-    return { arrow: '▲', class: 'lp-up', diff: `+${diff}` };
+    return { arrow: '▲', class: 'lp-up' };
   } else if (diff < 0) {
-    return { arrow: '▼', class: 'lp-down', diff: `${diff}` };
+    return { arrow: '▼', class: 'lp-down' };
   }
-  return { arrow: '', class: '', diff: '' };
+  return { arrow: '', class: '' };
 }
 
 // Render player cards (sorted by rank)
@@ -452,7 +452,7 @@ function renderPlayers() {
       <div class="player-card" onclick="refreshPlayer(${index})" style="border-left-color: ${color}">
         <div class="player-header">
           <div class="player-name">${player.gameName}</div>
-          ${lpChange.arrow ? `<span class="lp-change ${lpChange.class}">${lpChange.arrow} ${lpChange.diff}</span>` : ''}
+          ${lpChange.arrow ? `<span class="lp-change ${lpChange.class}">${lpChange.arrow}</span>` : ''}
         </div>
         <div class="player-region">${player.region} #${player.tagLine}</div>
         <div class="rank-info">
@@ -544,18 +544,7 @@ function initChart() {
             padding: 16,
             usePointStyle: false,
             generateLabels: (chart) => {
-              // Add Timeline toggle as first item
-              const timelineToggle = {
-                text: overviewMode ? '◉ Timeline' : '○ Timeline',
-                fillStyle: overviewMode ? '#e0e0e0' : '#c8102e',
-                strokeStyle: overviewMode ? '#888' : '#c8102e',
-                lineWidth: 2,
-                hidden: false,
-                datasetIndex: -1, // Special index for timeline toggle
-                fontColor: '#1a1a1a'
-              };
-
-              const playerLabels = chart.data.datasets.map((dataset, index) => {
+              return chart.data.datasets.map((dataset, index) => {
                 const isSelected = selectedPlayers.has(index);
                 return {
                   text: (isSelected ? '☑ ' : '☐ ') + dataset.label,
@@ -567,20 +556,11 @@ function initChart() {
                   fontColor: isSelected ? '#1a1a1a' : '#888'
                 };
               });
-
-              return [timelineToggle, ...playerLabels];
             }
           },
           onClick: (event, legendItem, legend) => {
             const index = legendItem.datasetIndex;
-
-            // Handle Timeline toggle (index -1)
-            if (index === -1) {
-              toggleOverviewMode();
-              return;
-            }
-
-            // Toggle player selection
+            // Toggle selection
             if (selectedPlayers.has(index)) {
               selectedPlayers.delete(index);
             } else {
@@ -710,6 +690,9 @@ function initChart() {
       resetChartStyles(chart);
     }
   });
+
+  // Add Timeline button aligned with legend
+  addTimelineButton();
 }
 
 // Highlight a single line (for hover)
@@ -821,13 +804,33 @@ function updateTimelineLabels(startIndex, endIndex) {
   }
 }
 
+// Add Timeline button aligned with legend
+function addTimelineButton() {
+  const container = document.getElementById('chart-container');
+  if (!container || document.getElementById('timeline-btn')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'timeline-btn';
+  btn.textContent = 'Timeline';
+  btn.onclick = toggleOverviewMode;
+
+  // Start in overview mode, so button is not active
+  if (!overviewMode) {
+    btn.classList.add('active');
+  }
+
+  container.appendChild(btn);
+}
+
 // Toggle between overview (all data) and timeline view
 function toggleOverviewMode() {
   overviewMode = !overviewMode;
+  const btn = document.getElementById('timeline-btn');
   const slider = document.getElementById('timeline-slider');
 
   if (overviewMode) {
-    // Show all data (Overview mode)
+    // Show all data (Overview mode) - button not active
+    if (btn) btn.classList.remove('active');
     if (slider) slider.disabled = true;
 
     // Set chart to show full range
@@ -837,7 +840,8 @@ function toggleOverviewMode() {
 
     updateTimelineLabels(0, allTimestamps.length - 1);
   } else {
-    // Timeline mode - windowed view with slider
+    // Timeline mode - windowed view with slider - button active
+    if (btn) btn.classList.add('active');
     if (slider) {
       slider.disabled = false;
       slider.value = 100;
@@ -852,9 +856,6 @@ function toggleOverviewMode() {
 
     updateTimelineLabels(chart.options.scales.x.min, chart.options.scales.x.max);
   }
-
-  // Update legend to reflect new state
-  chart.update('none');
 }
 
 // Calculate dynamic Y-axis range based on player data

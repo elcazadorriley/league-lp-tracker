@@ -1,7 +1,7 @@
 {
-  "version": 2,
+  "buildCommand": "npm install",
+  "outputDirectory": "public",
   "rewrites": [
-    { "source": "/api/rank/:region/:gameName/:tagLine", "destination": "/api/rank?region=:region&gameName=:gameName&tagLine=:tagLine" },
-    { "source": "/((?!api/).*)", "destination": "/public/$1" }
+    { "source": "/api/rank/:region/:gameName/:tagLine", "destination": "/api/rank?region=:region&gameName=:gameName&tagLine=:tagLine" }
   ]
 }

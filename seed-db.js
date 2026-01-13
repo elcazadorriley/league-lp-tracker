@@ -143,7 +143,8 @@ async function seed() {
         rank: player.soloQueue.rank,
         lp: player.soloQueue.leaguePoints,
         wins: player.soloQueue.wins,
-        losses: player.soloQueue.losses
+        losses: player.soloQueue.losses,
+        created_at: entry.timestamp
       };
       try {
         await postData(data);

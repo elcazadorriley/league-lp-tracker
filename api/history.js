@@ -44,7 +44,7 @@ module.exports = async (req, res) => {
           lp: body.lp,
           wins: body.wins,
           losses: body.losses,
-          created_at: new Date().toISOString()
+          created_at: body.created_at || new Date().toISOString()
         }])
         .select();
 

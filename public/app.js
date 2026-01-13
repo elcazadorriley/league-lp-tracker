@@ -67,18 +67,19 @@ function totalLPToRank(totalLP) {
   };
 }
 
-// Riot-style colors for chart lines
+// Colorblind-friendly high contrast colors (Wong palette + additions)
+// These colors are distinguishable for deuteranopia, protanopia, and tritanopia
 const PLAYER_COLORS = [
-  '#c8102e', // Riot Red
-  '#1a1a1a', // Black
-  '#0a6cba', // Blue
-  '#2e7d32', // Green
-  '#7b1fa2', // Purple
-  '#d84315', // Deep Orange
-  '#00838f', // Teal
-  '#c2185b', // Pink
-  '#5d4037', // Brown
-  '#455a64'  // Blue Grey
+  '#0077BB', // Strong Blue
+  '#EE7733', // Orange
+  '#009988', // Teal
+  '#CC3311', // Vermillion Red
+  '#EE3377', // Magenta
+  '#AA3377', // Purple
+  '#BBBB00', // Olive/Yellow
+  '#332288', // Indigo
+  '#44AA99', // Cyan
+  '#882255'  // Wine
 ];
 
 // Initialize on page load
@@ -694,8 +695,9 @@ function initChart() {
     }
   });
 
-  // Add Overview/Daily toggle button
-  addViewToggleButton();
+  // Initialize button state (Overview is default/active)
+  const btn = document.getElementById('view-toggle-btn');
+  if (btn) btn.classList.add('active');
 }
 
 // Highlight a single line (for hover)
@@ -707,19 +709,19 @@ function applyChartHighlight(chartInstance, highlightIndex) {
       // The hovered line - full highlight with dots
       dataset.borderWidth = 5;
       dataset.borderColor = baseColor;
-      dataset.pointRadius = 6;
+      dataset.pointRadius = 8;
       dataset.pointBackgroundColor = baseColor;
       dataset.pointBorderColor = '#fff';
-      dataset.pointBorderWidth = 2;
+      dataset.pointBorderWidth = 3;
     } else if (selectedPlayers.size > 0 && selectedPlayers.has(index)) {
       // Other selected lines - visible but no dots
-      dataset.borderWidth = 2;
+      dataset.borderWidth = 3;
       dataset.borderColor = baseColor;
       dataset.pointRadius = 0;
     } else {
       // Non-selected lines - faded
-      dataset.borderWidth = 1.5;
-      dataset.borderColor = baseColor + '20';
+      dataset.borderWidth = 2;
+      dataset.borderColor = baseColor + '30';
       dataset.pointRadius = 0;
     }
   });
@@ -731,12 +733,12 @@ function applySelectedHighlight(chartInstance) {
   chartInstance.data.datasets.forEach((dataset, index) => {
     const baseColor = PLAYER_COLORS[players[index]?.colorIndex || index];
     if (selectedPlayers.has(index)) {
-      dataset.borderWidth = 3;
+      dataset.borderWidth = 4;
       dataset.borderColor = baseColor;
       dataset.pointRadius = 0;
     } else {
-      dataset.borderWidth = 1.5;
-      dataset.borderColor = baseColor + '20';
+      dataset.borderWidth = 2;
+      dataset.borderColor = baseColor + '30';
       dataset.pointRadius = 0;
     }
   });
@@ -747,7 +749,7 @@ function applySelectedHighlight(chartInstance) {
 function resetChartStyles(chartInstance) {
   chartInstance.data.datasets.forEach((dataset, index) => {
     const baseColor = PLAYER_COLORS[players[index]?.colorIndex || index];
-    dataset.borderWidth = 2;
+    dataset.borderWidth = 3;
     dataset.borderColor = baseColor;
     dataset.pointRadius = 0;
   });
@@ -805,20 +807,6 @@ function updateTimelineLabels(startIndex, endIndex) {
   if (endLabel && allTimestamps[endIndex]) {
     endLabel.textContent = formatTimestamp(allTimestamps[endIndex]);
   }
-}
-
-// Add Overview/Daily toggle button aligned with legend
-function addViewToggleButton() {
-  const container = document.getElementById('chart-container');
-  if (!container || document.getElementById('view-toggle-btn')) return;
-
-  const btn = document.createElement('button');
-  btn.id = 'view-toggle-btn';
-  btn.textContent = 'Overview';
-  btn.classList.add('active'); // Start active (overview mode)
-  btn.onclick = toggleViewMode;
-
-  container.appendChild(btn);
 }
 
 // Toggle between overview (all data) and daily (last 24 hours)
@@ -956,16 +944,16 @@ function updateChart() {
       data: data,
       borderColor: color,
       backgroundColor: color + '20',
-      borderWidth: 2,
+      borderWidth: 3, // Thicker lines for better visibility
       pointRadius: 0,
-      pointHoverRadius: 6,
+      pointHoverRadius: 8,
       pointBackgroundColor: color,
       pointBorderColor: '#fff',
-      pointBorderWidth: 2,
+      pointBorderWidth: 3,
       pointHoverBackgroundColor: color,
       pointHoverBorderColor: '#fff',
-      pointHoverBorderWidth: 2,
-      tension: 0.3,
+      pointHoverBorderWidth: 3,
+      tension: 0.2, // Slightly less curve for cleaner lines
       fill: false,
       spanGaps: true,
       borderCapStyle: 'round',

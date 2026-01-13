@@ -247,6 +247,17 @@ h2 {
   flex-direction: column;
 }
 
+.chart-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.chart-header h2 {
+  margin-bottom: 0;
+}
+
 #chart-container {
   flex: 1;
   background: #fff;
@@ -259,9 +270,6 @@ h2 {
 }
 
 #view-toggle-btn {
-  position: absolute;
-  top: 24px;
-  right: 24px;
   padding: 6px 14px;
   background: #fff;
   color: #666;
@@ -272,7 +280,7 @@ h2 {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  z-index: 10;
+  margin-left: 16px;
 }
 
 #view-toggle-btn:hover {

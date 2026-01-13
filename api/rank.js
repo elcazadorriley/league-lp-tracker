@@ -21,7 +21,6 @@ const REGIONS = {
 
 module.exports = async (req, res) => {
   try {
-    // Get params from query (passed via Vercel rewrite)
     const { region, gameName, tagLine } = req.query;
 
     if (!region || !gameName || !tagLine) {

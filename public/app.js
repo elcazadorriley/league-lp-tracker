@@ -448,13 +448,15 @@ function renderPlayers() {
       ? `<img src="${rankIconUrl}" alt="${tier}" class="rank-icon" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="rank-badge rank-${tier.toLowerCase()}" style="display:none">${tier.slice(0, 3)}${division ? '<br>' + division : ''}</div>`
       : `<div class="rank-badge rank-${tier.toLowerCase()}">${tier.slice(0, 3)}${division ? '<br>' + division : ''}</div>`;
 
+    const opggUrl = `https://www.op.gg/summoners/na/${encodeURIComponent(player.gameName)}-${encodeURIComponent(player.tagLine)}`;
+
     return `
       <div class="player-card" onclick="refreshPlayer(${index})" style="border-left-color: ${color}">
         <div class="player-header">
           <div class="player-name">${player.gameName}</div>
           ${lpChange.arrow ? `<span class="lp-change ${lpChange.class}">${lpChange.arrow} ${lpChange.diff}</span>` : ''}
         </div>
-        <div class="player-region">${player.region} #${player.tagLine}</div>
+        <div class="player-region">${player.region} #${player.tagLine} <a href="${opggUrl}" target="_blank" class="opgg-link" onclick="event.stopPropagation()">OP.GG</a></div>
         <div class="rank-info">
           ${rankBadge}
           <div class="rank-details">

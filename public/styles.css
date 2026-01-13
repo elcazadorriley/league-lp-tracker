@@ -177,6 +177,17 @@ h2 {
   letter-spacing: 0.5px;
 }
 
+.player-card .opgg-link {
+  color: #c8102e;
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.player-card .opgg-link:hover {
+  text-decoration: underline;
+}
+
 .player-card .rank-info {
   display: flex;
   align-items: center;

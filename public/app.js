@@ -879,11 +879,21 @@ function calculateYAxisRange() {
   let maxLP = -Infinity;
 
   players.forEach(p => {
+    // Skip unranked players (no soloQueue data)
+    if (!p.soloQueue) return;
+
     p.history.forEach(h => {
+      // Skip entries with 0 LP (unranked)
+      if (h.totalLP === 0) return;
       if (h.totalLP < minLP) minLP = h.totalLP;
       if (h.totalLP > maxLP) maxLP = h.totalLP;
     });
   });
+
+  // If no valid LP data found, return defaults
+  if (minLP === Infinity || maxLP === -Infinity) {
+    return { min: 800, max: 2000 };
+  }
 
   const minBoundary = Math.max(0, Math.floor((minLP - 100) / 400) * 400);
   const maxBoundary = Math.min(4000, Math.ceil((maxLP + 100) / 400) * 400);

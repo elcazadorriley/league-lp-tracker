@@ -59,6 +59,33 @@ module.exports = async (req, res) => {
       res.status(500).json({ error: 'Failed to save history', details: error.message || String(error) });
     }
   }
+  // DELETE - remove entries before a date for a player
+  else if (req.method === 'DELETE') {
+    try {
+      const { player_id, before_date } = req.query;
+
+      if (!player_id || !before_date) {
+        return res.status(400).json({ error: 'Missing player_id or before_date query params' });
+      }
+
+      const { data, error } = await supabase
+        .from('lp_history')
+        .delete()
+        .eq('player_id', player_id)
+        .lt('created_at', before_date)
+        .select();
+
+      if (error) {
+        console.error('Delete error:', error);
+        return res.status(500).json({ error: 'Database error', details: error.message });
+      }
+
+      res.json({ deleted: data.length, entries: data });
+    } catch (error) {
+      console.error('Delete error:', error);
+      res.status(500).json({ error: 'Failed to delete', details: error.message });
+    }
+  }
   else {
     res.status(405).json({ error: 'Method not allowed' });
   }

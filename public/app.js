@@ -691,8 +691,8 @@ function initChart() {
     }
   });
 
-  // Add Timeline button aligned with legend
-  addTimelineButton();
+  // Add Overview/Daily toggle button
+  addViewToggleButton();
 }
 
 // Highlight a single line (for hover)
@@ -804,33 +804,32 @@ function updateTimelineLabels(startIndex, endIndex) {
   }
 }
 
-// Add Timeline button aligned with legend
-function addTimelineButton() {
+// Add Overview/Daily toggle button aligned with legend
+function addViewToggleButton() {
   const container = document.getElementById('chart-container');
-  if (!container || document.getElementById('timeline-btn')) return;
+  if (!container || document.getElementById('view-toggle-btn')) return;
 
   const btn = document.createElement('button');
-  btn.id = 'timeline-btn';
-  btn.textContent = 'Timeline';
-  btn.onclick = toggleOverviewMode;
-
-  // Start in overview mode, so button is not active
-  if (!overviewMode) {
-    btn.classList.add('active');
-  }
+  btn.id = 'view-toggle-btn';
+  btn.textContent = 'Overview';
+  btn.classList.add('active'); // Start active (overview mode)
+  btn.onclick = toggleViewMode;
 
   container.appendChild(btn);
 }
 
-// Toggle between overview (all data) and timeline view
-function toggleOverviewMode() {
+// Toggle between overview (all data) and daily (last 24 hours)
+function toggleViewMode() {
   overviewMode = !overviewMode;
-  const btn = document.getElementById('timeline-btn');
+  const btn = document.getElementById('view-toggle-btn');
   const slider = document.getElementById('timeline-slider');
 
   if (overviewMode) {
-    // Show all data (Overview mode) - button not active
-    if (btn) btn.classList.remove('active');
+    // Overview mode - show ALL data, button active (red)
+    if (btn) {
+      btn.textContent = 'Overview';
+      btn.classList.add('active');
+    }
     if (slider) slider.disabled = true;
 
     // Set chart to show full range
@@ -840,21 +839,30 @@ function toggleOverviewMode() {
 
     updateTimelineLabels(0, allTimestamps.length - 1);
   } else {
-    // Timeline mode - windowed view with slider - button active
-    if (btn) btn.classList.add('active');
-    if (slider) {
-      slider.disabled = false;
-      slider.value = 100;
+    // Daily mode - show last 24 hours of data, button inactive (white)
+    if (btn) {
+      btn.textContent = 'Daily';
+      btn.classList.remove('active');
+    }
+    if (slider) slider.disabled = true;
+
+    // Find data points from last 24 hours
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    let startIndex = 0;
+    for (let i = 0; i < allTimestamps.length; i++) {
+      if (new Date(allTimestamps[i]) >= oneDayAgo) {
+        startIndex = i;
+        break;
+      }
     }
 
-    // Reset to show recent data
-    if (allTimestamps.length > VISIBLE_POINTS) {
-      chart.options.scales.x.min = allTimestamps.length - VISIBLE_POINTS;
-      chart.options.scales.x.max = allTimestamps.length - 1;
-    }
+    chart.options.scales.x.min = startIndex;
+    chart.options.scales.x.max = allTimestamps.length - 1;
     chart.update('none');
 
-    updateTimelineLabels(chart.options.scales.x.min, chart.options.scales.x.max);
+    updateTimelineLabels(startIndex, allTimestamps.length - 1);
   }
 }
 
@@ -912,26 +920,13 @@ function updateChart() {
   // Format labels for display
   chart.data.labels = allTimestamps.map(ts => formatTimestamp(ts));
 
-  // Set initial view based on overviewMode (default: overview shows all data)
+  // Set initial view - Overview mode shows ALL data from the beginning
   const slider = document.getElementById('timeline-slider');
-  if (overviewMode) {
-    // Overview mode - show all data
-    chart.options.scales.x.min = 0;
-    chart.options.scales.x.max = allTimestamps.length - 1;
-    if (slider) slider.disabled = true;
-  } else if (allTimestamps.length > VISIBLE_POINTS) {
-    // Timeline mode - show recent data window
-    chart.options.scales.x.min = allTimestamps.length - VISIBLE_POINTS;
-    chart.options.scales.x.max = allTimestamps.length - 1;
-    if (slider) {
-      slider.disabled = false;
-      slider.value = 100;
-    }
-  } else {
-    chart.options.scales.x.min = 0;
-    chart.options.scales.x.max = allTimestamps.length - 1;
-    if (slider) slider.disabled = true;
-  }
+  if (slider) slider.disabled = true;
+
+  // Always show full range (overview is default)
+  chart.options.scales.x.min = 0;
+  chart.options.scales.x.max = allTimestamps.length - 1;
 
   // Update timeline labels
   updateTimelineLabels(chart.options.scales.x.min, chart.options.scales.x.max);

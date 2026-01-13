@@ -257,7 +257,7 @@ h2 {
   position: relative;
 }
 
-#timeline-btn {
+#view-toggle-btn {
   position: absolute;
   top: 24px;
   right: 24px;
@@ -274,19 +274,19 @@ h2 {
   z-index: 10;
 }
 
-#timeline-btn:hover {
+#view-toggle-btn:hover {
   background: #f5f5f5;
   border-color: #ccc;
   color: #333;
 }
 
-#timeline-btn.active {
+#view-toggle-btn.active {
   background: #c8102e;
   color: #fff;
   border-color: #c8102e;
 }
 
-#timeline-btn.active:hover {
+#view-toggle-btn.active:hover {
   background: #a00d25;
 }
 

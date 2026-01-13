@@ -21,10 +21,8 @@ const REGIONS = {
 
 module.exports = async (req, res) => {
   try {
-    // Parse path: /api/rank/REGION/GAMENAME/TAGLINE
-    const pathParts = req.url.split('/').filter(Boolean);
-    // pathParts = ['api', 'rank', 'NA', 'Keebles', '6969']
-    const [, , region, gameName, tagLine] = pathParts;
+    // Get params from query (passed via Vercel rewrite)
+    const { region, gameName, tagLine } = req.query;
 
     if (!region || !gameName || !tagLine) {
       return res.status(400).json({ error: 'Missing parameters. Use /api/rank/REGION/GAMENAME/TAGLINE' });

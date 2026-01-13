@@ -101,6 +101,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initializePlayers();
   }
 
+  // Merge any new players from PRELOADED_PLAYERS that aren't in the database yet
+  if (typeof PRELOADED_PLAYERS !== 'undefined') {
+    const existingKeys = new Set(players.map(p => `${p.gameName}#${p.tagLine}`));
+    PRELOADED_PLAYERS.forEach(preloaded => {
+      const key = `${preloaded.gameName}#${preloaded.tagLine}`;
+      if (!existingKeys.has(key)) {
+        players.push(JSON.parse(JSON.stringify(preloaded)));
+        console.log('Added new player from config:', key);
+      }
+    });
+  }
+
   renderPlayers();
   updateChart();
   updateLastUpdated();

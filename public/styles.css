@@ -127,7 +127,6 @@ h2 {
   border-left: 4px solid;
   border-radius: 8px;
   padding: 14px 16px;
-  cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
@@ -135,8 +134,6 @@ h2 {
 .player-card:hover {
   background: #fafafa;
   border-color: #ccc;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
 }
 
 .player-card .player-header {

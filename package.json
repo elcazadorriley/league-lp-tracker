@@ -1,0 +1,20 @@
+{
+  "name": "league-lp-tracker",
+  "version": "1.0.0",
+  "description": "Track League of Legends LP gains and losses over time",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "chart.js": "^4.5.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1"
+  }
+}

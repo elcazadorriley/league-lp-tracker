@@ -1,4 +1,10 @@
 {
+  "version": 2,
+  "functions": {
+    "api/rank.js": {
+      "runtime": "nodejs20.x"
+    }
+  },
   "rewrites": [
     { "source": "/api/rank/:region/:gameName/:tagLine", "destination": "/api/rank" },
     { "source": "/(.*)", "destination": "/public/$1" }

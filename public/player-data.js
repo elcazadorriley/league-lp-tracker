@@ -213,5 +213,13 @@ const PRELOADED_PLAYERS = [
       { "timestamp": "2026-01-13T07:00:00.000Z", "totalLP": 1740 }
     ],
     "colorIndex": 6
+  },
+  {
+    "gameName": "Cedric Dube",
+    "tagLine": "9999",
+    "region": "NA",
+    "soloQueue": null,
+    "history": [],
+    "colorIndex": 7
   }
 ];

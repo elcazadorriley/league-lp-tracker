@@ -451,12 +451,12 @@ function renderPlayers() {
     const opggUrl = `https://www.op.gg/summoners/na/${encodeURIComponent(player.gameName)}-${encodeURIComponent(player.tagLine)}`;
 
     return `
-      <div class="player-card" style="border-left-color: ${color}">
+      <div class="player-card" onclick="window.open('${opggUrl}', '_blank')" style="border-left-color: ${color}">
         <div class="player-header">
           <div class="player-name">${player.gameName}</div>
           ${lpChange.arrow ? `<span class="lp-change ${lpChange.class}">${lpChange.arrow} ${lpChange.diff}</span>` : ''}
         </div>
-        <div class="player-region">${player.region} #${player.tagLine} <a href="${opggUrl}" target="_blank" class="opgg-link">OP.GG</a></div>
+        <div class="player-region">${player.region} #${player.tagLine}</div>
         <div class="rank-info">
           ${rankBadge}
           <div class="rank-details">

@@ -16,7 +16,8 @@ const PLAYERS = [
   { gameName: 'Tortle', tagLine: 'Druid', region: 'NA' },
   { gameName: 'Keebles', tagLine: '6969', region: 'NA' },
   { gameName: 'Cedric Dube', tagLine: '420', region: 'NA' },
-  { gameName: 'Humble White Boy', tagLine: '666', region: 'NA' }
+  { gameName: 'Humble White Boy', tagLine: '666', region: 'NA' },
+  { gameName: 'Bugz', tagLine: '0627', region: 'NA' }
 ];
 
 function sleep(ms) {

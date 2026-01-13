@@ -401,7 +401,7 @@ function getRankIconUrl(tier) {
   }
   // CommunityDragon hosts League rank emblems
   const tierLower = tier.toLowerCase();
-  return `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default/images/ranked-emblem/emblem-${tierLower}.png`;
+  return `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests/${tierLower}.png`;
 }
 
 // Get LP change arrow for player (based on last 2 history entries)

@@ -82,24 +82,26 @@ const PLAYER_COLORS = [
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
-  loadPlayersFromStorage();
   loadLastUpdated();
   initChart();
 
-  // If no stored players, use preloaded data with history
+  // Try to load from database first, then fallback to localStorage/preloaded
+  await loadPlayersFromDatabase();
+
+  if (players.length === 0) {
+    loadPlayersFromStorage();
+  }
+
   if (players.length === 0 && typeof PRELOADED_PLAYERS !== 'undefined') {
     players = JSON.parse(JSON.stringify(PRELOADED_PLAYERS));
     savePlayersToStorage();
-    renderPlayers();
-    updateChart();
-    updateLastUpdated();
   } else if (players.length === 0) {
     await initializePlayers();
-    updateLastUpdated();
-  } else {
-    renderPlayers();
-    updateChart();
   }
+
+  renderPlayers();
+  updateChart();
+  updateLastUpdated();
 
   // Initialize timeline slider
   initTimelineSlider();
@@ -156,6 +158,82 @@ function loadPlayersFromStorage() {
 // Save players to localStorage
 function savePlayersToStorage() {
   localStorage.setItem('lp-tracker-players', JSON.stringify(players));
+}
+
+// Load player history from database
+async function loadPlayersFromDatabase() {
+  try {
+    const response = await fetch('/api/history');
+    if (!response.ok) return;
+
+    const history = await response.json();
+    if (!history || history.length === 0) return;
+
+    // Group history by player
+    const playerMap = new Map();
+
+    history.forEach(entry => {
+      const key = `${entry.game_name}#${entry.tag_line}`;
+      if (!playerMap.has(key)) {
+        playerMap.set(key, {
+          gameName: entry.game_name,
+          tagLine: entry.tag_line,
+          region: entry.region,
+          soloQueue: {
+            tier: entry.tier,
+            rank: entry.rank,
+            leaguePoints: entry.lp,
+            wins: entry.wins,
+            losses: entry.losses
+          },
+          history: [],
+          colorIndex: playerMap.size % PLAYER_COLORS.length
+        });
+      }
+      playerMap.get(key).history.push({
+        timestamp: entry.created_at,
+        totalLP: entry.total_lp
+      });
+    });
+
+    // Update soloQueue with most recent data for each player
+    playerMap.forEach(player => {
+      if (player.history.length > 0) {
+        player.history.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      }
+    });
+
+    players = Array.from(playerMap.values());
+    console.log('Loaded', players.length, 'players from database');
+  } catch (error) {
+    console.error('Failed to load from database:', error);
+  }
+}
+
+// Save LP data point to database
+async function saveToDatabase(player, totalLP) {
+  try {
+    const response = await fetch('/api/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        player_id: `${player.gameName}#${player.tagLine}`,
+        game_name: player.gameName,
+        tag_line: player.tagLine,
+        region: player.region,
+        total_lp: totalLP,
+        tier: player.soloQueue?.tier || 'UNRANKED',
+        rank: player.soloQueue?.rank || '',
+        lp: player.soloQueue?.leaguePoints || 0,
+        wins: player.soloQueue?.wins || 0,
+        losses: player.soloQueue?.losses || 0
+      })
+    });
+    if (!response.ok) throw new Error('Failed to save');
+    console.log('Saved to database:', player.gameName, totalLP);
+  } catch (error) {
+    console.error('Failed to save to database:', error);
+  }
 }
 
 // Get current LP for sorting
@@ -247,6 +325,8 @@ async function refreshAllPlayers() {
             timestamp: data.timestamp,
             totalLP: newTotalLP
           });
+          // Save to database
+          await saveToDatabase(player, newTotalLP);
         }
         refreshedCount++;
       }

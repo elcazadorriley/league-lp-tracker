@@ -204,10 +204,13 @@ async function loadPlayersFromDatabase() {
           colorIndex: playerMap.size % PLAYER_COLORS.length
         });
       }
-      playerMap.get(key).history.push({
-        timestamp: entry.created_at,
-        totalLP: entry.total_lp
-      });
+      // Skip unranked entries (don't plot 0 LP points from before placement)
+      if (entry.tier !== 'UNRANKED' && entry.total_lp > 0) {
+        playerMap.get(key).history.push({
+          timestamp: entry.created_at,
+          totalLP: entry.total_lp
+        });
+      }
     });
 
     // Update soloQueue with most recent data for each player

@@ -78,7 +78,7 @@ const PLAYER_COLORS = [
   '#AA3377', // Purple
   '#BBBB00', // Olive/Yellow
   '#332288', // Indigo
-  '#44AA99', // Cyan
+  '#66CC33', // Lime Green
   '#882255'  // Wine
 ];
 

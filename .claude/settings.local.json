@@ -9,7 +9,9 @@
       "Bash(set VERCEL_TOKEN=zWQ54pWOouunibA8vF7CyC2u)",
       "Bash(VERCEL_TOKEN=zWQ54pWOouunibA8vF7CyC2u npx vercel dev:*)",
       "Bash(pnpm i:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }

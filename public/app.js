@@ -211,10 +211,25 @@ async function loadPlayersFromDatabase() {
       }
       // Skip unranked entries (don't plot 0 LP points from before placement)
       if (entry.tier !== 'UNRANKED' && entry.total_lp > 0) {
-        playerMap.get(key).history.push({
+        const historyEntry = {
           timestamp: entry.created_at,
           totalLP: entry.total_lp
-        });
+        };
+
+        // Include match data if available
+        if (entry.match_id) {
+          historyEntry.match = {
+            matchId: entry.match_id,
+            champion: entry.champion_name,
+            championId: entry.champion_id,
+            kills: entry.kills,
+            deaths: entry.deaths,
+            assists: entry.assists,
+            win: entry.game_win
+          };
+        }
+
+        playerMap.get(key).history.push(historyEntry);
       }
     });
 
@@ -232,29 +247,57 @@ async function loadPlayersFromDatabase() {
   }
 }
 
-// Save LP data point to database
-async function saveToDatabase(player, totalLP) {
+// Save LP data point to database (with optional match data)
+async function saveToDatabase(player, totalLP, matchData = null) {
   try {
+    const payload = {
+      player_id: `${player.gameName}#${player.tagLine}`,
+      game_name: player.gameName,
+      tag_line: player.tagLine,
+      region: player.region,
+      total_lp: totalLP,
+      tier: player.soloQueue?.tier || 'UNRANKED',
+      rank: player.soloQueue?.rank || '',
+      lp: player.soloQueue?.leaguePoints || 0,
+      wins: player.soloQueue?.wins || 0,
+      losses: player.soloQueue?.losses || 0
+    };
+
+    // Add match data if provided
+    if (matchData) {
+      payload.match_id = matchData.matchId;
+      payload.champion_name = matchData.champion;
+      payload.champion_id = matchData.championId;
+      payload.kills = matchData.kills;
+      payload.deaths = matchData.deaths;
+      payload.assists = matchData.assists;
+      payload.game_win = matchData.win;
+    }
+
     const response = await fetch('/api/history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        player_id: `${player.gameName}#${player.tagLine}`,
-        game_name: player.gameName,
-        tag_line: player.tagLine,
-        region: player.region,
-        total_lp: totalLP,
-        tier: player.soloQueue?.tier || 'UNRANKED',
-        rank: player.soloQueue?.rank || '',
-        lp: player.soloQueue?.leaguePoints || 0,
-        wins: player.soloQueue?.wins || 0,
-        losses: player.soloQueue?.losses || 0
-      })
+      body: JSON.stringify(payload)
     });
     if (!response.ok) throw new Error('Failed to save');
-    console.log('Saved to database:', player.gameName, totalLP);
+    console.log('Saved to database:', player.gameName, totalLP, matchData ? `(${matchData.champion})` : '');
   } catch (error) {
     console.error('Failed to save to database:', error);
+  }
+}
+
+// Fetch most recent ranked match for a player
+async function fetchMostRecentMatch(player) {
+  try {
+    const url = `/api/matches?region=${player.region}&gameName=${encodeURIComponent(player.gameName)}&tagLine=${encodeURIComponent(player.tagLine)}&count=1`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+
+    const matches = await response.json();
+    return matches.length > 0 ? matches[0] : null;
+  } catch (error) {
+    console.error('Failed to fetch recent match:', error);
+    return null;
   }
 }
 
@@ -343,12 +386,17 @@ async function refreshAllPlayers() {
         const lastEntry = player.history[player.history.length - 1];
 
         if (!lastEntry || lastEntry.totalLP !== newTotalLP) {
+          // Fetch the most recent match to get champion/KDA data
+          const recentMatch = await fetchMostRecentMatch(player);
+
           player.history.push({
             timestamp: data.timestamp,
-            totalLP: newTotalLP
+            totalLP: newTotalLP,
+            match: recentMatch
           });
-          // Save to database
-          await saveToDatabase(player, newTotalLP);
+
+          // Save to database with match data
+          await saveToDatabase(player, newTotalLP, recentMatch);
         }
         refreshedCount++;
       }
@@ -1103,9 +1151,26 @@ async function showPlayerDetailView(playerIndex) {
   // Show overlay
   document.getElementById('detail-view-overlay').classList.remove('hidden');
 
-  // Fetch match history and create chart
-  const matches = await fetchMatchHistory(player);
-  const enrichedHistory = correlateMatchesWithHistory(player, matches);
+  // Check if history already has match data from database
+  const hasStoredMatchData = player.history.some(h => h.match);
+
+  let enrichedHistory;
+  if (hasStoredMatchData) {
+    // Use stored match data, just add LP change calculations
+    enrichedHistory = player.history.map((entry, index) => {
+      let lpChange = 0;
+      if (index > 0) {
+        lpChange = entry.totalLP - player.history[index - 1].totalLP;
+      }
+      return { ...entry, lpChange };
+    });
+    console.log('Using stored match data from database');
+  } else {
+    // Fetch match history from API and correlate
+    const matches = await fetchMatchHistory(player);
+    enrichedHistory = correlateMatchesWithHistory(player, matches);
+    console.log('Fetched match data from API');
+  }
 
   createDetailChart(player, enrichedHistory);
 }

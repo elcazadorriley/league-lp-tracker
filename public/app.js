@@ -9,6 +9,11 @@ const VISIBLE_POINTS = 20; // Number of data points visible at once
 let allTimestamps = []; // Store all timestamps for slider
 let overviewMode = true; // Toggle for showing all data vs timeline view (default: overview)
 
+// Detail View State
+let detailChart = null;
+let currentDetailPlayer = null;
+let playerMatchCache = new Map(); // Cache match data per player
+
 // HARDCODED TRACKED PLAYERS
 const TRACKED_PLAYERS = [
   { gameName: 'i am sad haha', tagLine: 'NA1', region: 'NA' },
@@ -468,7 +473,8 @@ function renderPlayers() {
     const opggUrl = `https://www.op.gg/summoners/na/${encodeURIComponent(player.gameName)}-${encodeURIComponent(player.tagLine)}`;
 
     return `
-      <div class="player-card" onclick="window.open('${opggUrl}', '_blank')" style="border-left-color: ${color}">
+      <div class="player-card" onclick="showPlayerDetailView(${index})" style="border-left-color: ${color}">
+        <a href="${opggUrl}" target="_blank" class="opgg-icon" onclick="event.stopPropagation()" title="View on OP.GG">OP.GG</a>
         <div class="player-header">
           <div class="player-name">${player.gameName}</div>
           ${lpChange.arrow ? `<span class="lp-change ${lpChange.class}">${lpChange.arrow} ${lpChange.diff}</span>` : ''}
@@ -988,3 +994,333 @@ function updateChart() {
 
   chart.update();
 }
+
+// ==========================================
+// PLAYER DETAIL VIEW FUNCTIONS
+// ==========================================
+
+// Get champion icon URL from CommunityDragon CDN
+function getChampionIconUrl(championId) {
+  return `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${championId}.png`;
+}
+
+// Fetch match history from API
+async function fetchMatchHistory(player, count = 20) {
+  const cacheKey = `${player.gameName}#${player.tagLine}`;
+
+  // Check cache first (valid for 5 minutes)
+  const cached = playerMatchCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < 5 * 60 * 1000) {
+    return cached.matches;
+  }
+
+  try {
+    const url = `/api/matches?region=${player.region}&gameName=${encodeURIComponent(player.gameName)}&tagLine=${encodeURIComponent(player.tagLine)}&count=${count}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      console.error('Failed to fetch match history:', response.status);
+      return [];
+    }
+
+    const matches = await response.json();
+
+    // Cache the results
+    playerMatchCache.set(cacheKey, {
+      matches: matches,
+      timestamp: Date.now()
+    });
+
+    return matches;
+  } catch (error) {
+    console.error('Error fetching match history:', error);
+    return [];
+  }
+}
+
+// Correlate LP history entries with match data
+function correlateMatchesWithHistory(player, matches) {
+  if (!player.history || player.history.length === 0) return player.history;
+
+  // Sort matches by timestamp (newest first)
+  const sortedMatches = [...matches].sort((a, b) =>
+    new Date(b.timestamp) - new Date(a.timestamp)
+  );
+
+  // For each history entry, try to find the matching game
+  return player.history.map((entry, index) => {
+    const entryTime = new Date(entry.timestamp);
+
+    // Find the closest match that occurred before this LP entry
+    // (LP update happens after game ends)
+    const matchingMatch = sortedMatches.find(match => {
+      const matchTime = new Date(match.timestamp);
+      const timeDiff = entryTime - matchTime;
+      // Match should be within 30 minutes before the LP entry
+      return timeDiff >= 0 && timeDiff < 30 * 60 * 1000;
+    });
+
+    // Calculate LP change from previous entry
+    let lpChange = 0;
+    if (index > 0) {
+      lpChange = entry.totalLP - player.history[index - 1].totalLP;
+    }
+
+    return {
+      ...entry,
+      lpChange: lpChange,
+      match: matchingMatch || null
+    };
+  });
+}
+
+// Show player detail view
+async function showPlayerDetailView(playerIndex) {
+  const player = getSortedPlayers()[playerIndex];
+  if (!player) return;
+
+  currentDetailPlayer = player;
+
+  // Update header info
+  document.getElementById('detail-player-name').textContent =
+    `${player.gameName} #${player.tagLine}`;
+
+  const rank = player.soloQueue;
+  if (rank) {
+    const winRate = rank.wins + rank.losses > 0
+      ? Math.round((rank.wins / (rank.wins + rank.losses)) * 100)
+      : 0;
+    document.getElementById('detail-player-rank').textContent =
+      `${rank.tier} ${rank.rank} · ${rank.leaguePoints} LP · ${winRate}% WR`;
+  } else {
+    document.getElementById('detail-player-rank').textContent = 'Unranked';
+  }
+
+  // Update OP.GG link
+  const opggUrl = `https://www.op.gg/summoners/na/${encodeURIComponent(player.gameName)}-${encodeURIComponent(player.tagLine)}`;
+  document.getElementById('detail-opgg-link').href = opggUrl;
+
+  // Show overlay
+  document.getElementById('detail-view-overlay').classList.remove('hidden');
+
+  // Fetch match history and create chart
+  const matches = await fetchMatchHistory(player);
+  const enrichedHistory = correlateMatchesWithHistory(player, matches);
+
+  createDetailChart(player, enrichedHistory);
+}
+
+// Close player detail view
+function closeDetailView() {
+  document.getElementById('detail-view-overlay').classList.add('hidden');
+  currentDetailPlayer = null;
+
+  if (detailChart) {
+    detailChart.destroy();
+    detailChart = null;
+  }
+
+  // Remove custom tooltip if it exists
+  const tooltipEl = document.getElementById('chartjs-tooltip');
+  if (tooltipEl) {
+    tooltipEl.remove();
+  }
+}
+
+// Create detail chart for single player
+function createDetailChart(player, enrichedHistory) {
+  const ctx = document.getElementById('detail-chart').getContext('2d');
+
+  // Destroy existing chart if any
+  if (detailChart) {
+    detailChart.destroy();
+  }
+
+  const color = PLAYER_COLORS[player.colorIndex];
+
+  // Prepare data - filter out entries with 0 LP
+  const validHistory = enrichedHistory.filter(h => h.totalLP > 0);
+
+  const labels = validHistory.map(h => formatTimestamp(h.timestamp));
+  const data = validHistory.map(h => h.totalLP);
+
+  // Calculate Y-axis range for this player
+  const minLP = Math.min(...data);
+  const maxLP = Math.max(...data);
+  const yMin = Math.max(0, Math.floor((minLP - 100) / 400) * 400);
+  const yMax = Math.min(4000, Math.ceil((maxLP + 100) / 400) * 400);
+
+  detailChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: player.gameName,
+        data: data,
+        borderColor: color,
+        backgroundColor: color + '20',
+        borderWidth: 3,
+        pointRadius: 8,
+        pointHoverRadius: 12,
+        pointBackgroundColor: validHistory.map(h => {
+          if (h.match) {
+            return h.match.win ? '#4caf50' : '#ef5350';
+          }
+          return color;
+        }),
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        tension: 0.2,
+        fill: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 500
+      },
+      interaction: {
+        intersect: true,
+        mode: 'point'
+      },
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          enabled: false, // Disable default tooltip, use custom HTML
+          external: function(context) {
+            // Get or create tooltip element
+            let tooltipEl = document.getElementById('chartjs-tooltip');
+            if (!tooltipEl) {
+              tooltipEl = document.createElement('div');
+              tooltipEl.id = 'chartjs-tooltip';
+              tooltipEl.className = 'match-tooltip';
+              document.body.appendChild(tooltipEl);
+            }
+
+            const tooltipModel = context.tooltip;
+
+            // Hide if no tooltip
+            if (tooltipModel.opacity === 0) {
+              tooltipEl.style.opacity = 0;
+              return;
+            }
+
+            // Get data point
+            if (tooltipModel.dataPoints && tooltipModel.dataPoints.length > 0) {
+              const idx = tooltipModel.dataPoints[0].dataIndex;
+              const entry = validHistory[idx];
+              const rankInfo = totalLPToRank(entry.totalLP);
+              const rankStr = rankInfo.division
+                ? `${rankInfo.tier} ${rankInfo.division}`
+                : rankInfo.tier;
+
+              let html = '';
+
+              // If match data available, show champion icon and stats
+              if (entry.match) {
+                const champIconUrl = getChampionIconUrl(entry.match.championId);
+                const resultClass = entry.match.win ? 'victory' : 'defeat';
+                const resultText = entry.match.win ? 'Victory' : 'Defeat';
+
+                html = `
+                  <div class="champion-row">
+                    <img src="${champIconUrl}" class="champion-icon" alt="${entry.match.champion}" onerror="this.style.display='none'">
+                    <div>
+                      <div class="champion-name">${entry.match.champion}</div>
+                      <div class="kda">${entry.match.kills} / ${entry.match.deaths} / ${entry.match.assists}</div>
+                    </div>
+                  </div>
+                  <div class="result ${resultClass}">${resultText}</div>
+                  <div class="rank-change">
+                    <div>${rankStr} · ${rankInfo.lp} LP</div>
+                    ${entry.lpChange !== 0 ? `<div class="lp-change ${entry.lpChange > 0 ? 'positive' : 'negative'}">${entry.lpChange > 0 ? '+' : ''}${entry.lpChange} LP</div>` : ''}
+                  </div>
+                `;
+              } else {
+                // No match data - show rank info only
+                html = `
+                  <div class="rank-change">
+                    <div>${rankStr} · ${rankInfo.lp} LP</div>
+                    ${entry.lpChange !== 0 ? `<div class="lp-change ${entry.lpChange > 0 ? 'positive' : 'negative'}">${entry.lpChange > 0 ? '+' : ''}${entry.lpChange} LP</div>` : ''}
+                  </div>
+                `;
+              }
+
+              tooltipEl.innerHTML = html;
+            }
+
+            // Position tooltip
+            const position = context.chart.canvas.getBoundingClientRect();
+            tooltipEl.style.opacity = 1;
+            tooltipEl.style.position = 'absolute';
+            tooltipEl.style.left = position.left + window.scrollX + tooltipModel.caretX + 'px';
+            tooltipEl.style.top = position.top + window.scrollY + tooltipModel.caretY - 10 + 'px';
+            tooltipEl.style.transform = 'translate(-50%, -100%)';
+            tooltipEl.style.pointerEvents = 'none';
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: {
+            color: 'rgba(0, 0, 0, 0.08)'
+          },
+          ticks: {
+            color: '#666',
+            font: {
+              family: "'Inter', sans-serif",
+              size: 11
+            },
+            maxRotation: 45,
+            autoSkip: true,
+            maxTicksLimit: 15
+          }
+        },
+        y: {
+          min: yMin,
+          max: yMax,
+          grid: {
+            color: (context) => {
+              const value = context.tick.value;
+              if (value % 400 === 0) return 'rgba(200, 16, 46, 0.3)';
+              if (value % 100 === 0) return 'rgba(0, 0, 0, 0.1)';
+              return 'rgba(0, 0, 0, 0.04)';
+            },
+            lineWidth: (context) => {
+              return context.tick.value % 400 === 0 ? 2 : 1;
+            }
+          },
+          ticks: {
+            color: '#1a1a1a',
+            font: {
+              family: "'Inter', sans-serif",
+              size: 11,
+              weight: '600'
+            },
+            stepSize: 100,
+            callback: function(value) {
+              const rankInfo = totalLPToRank(value);
+              if (value % 400 === 0) {
+                return `${rankInfo.tier} ${rankInfo.division}`.toUpperCase();
+              }
+              if (value % 100 === 0) {
+                return rankInfo.division;
+              }
+              return '';
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// Handle escape key to close detail view
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.getElementById('detail-view-overlay').classList.contains('hidden')) {
+    closeDetailView();
+  }
+});

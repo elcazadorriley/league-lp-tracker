@@ -44,7 +44,15 @@ module.exports = async (req, res) => {
           lp: body.lp,
           wins: body.wins,
           losses: body.losses,
-          created_at: body.created_at || new Date().toISOString()
+          created_at: body.created_at || new Date().toISOString(),
+          // Match data fields (optional)
+          match_id: body.match_id || null,
+          champion_name: body.champion_name || null,
+          champion_id: body.champion_id || null,
+          kills: body.kills ?? null,
+          deaths: body.deaths ?? null,
+          assists: body.assists ?? null,
+          game_win: body.game_win ?? null
         }])
         .select();
 

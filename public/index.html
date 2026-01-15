@@ -42,6 +42,26 @@
     </div>
   </div>
 
+  <!-- Player Detail View Modal -->
+  <div id="detail-view-overlay" class="detail-overlay hidden">
+    <div class="detail-container">
+      <div class="detail-header">
+        <button id="detail-back-btn" onclick="closeDetailView()">← Back</button>
+        <div class="detail-player-info">
+          <span id="detail-player-name">Player Name</span>
+          <span id="detail-player-rank">Gold II · 45 LP · 52% WR</span>
+        </div>
+        <a id="detail-opgg-link" href="#" target="_blank" class="opgg-link-btn" title="View on OP.GG">
+          OP.GG
+        </a>
+      </div>
+      <div class="detail-chart-container">
+        <canvas id="detail-chart"></canvas>
+      </div>
+      <p class="detail-note">// HOVER OVER DATA POINTS FOR GAME DETAILS</p>
+    </div>
+  </div>
+
   <footer class="legal-disclaimer">
     LP Tracker isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
   </footer>

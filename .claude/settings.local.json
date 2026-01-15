@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "WebSearch",
+      "WebFetch(domain:developer.riotgames.com)",
+      "Bash(vercel dev)",
+      "Bash(npx vercel:*)",
+      "Bash(set VERCEL_TOKEN=zWQ54pWOouunibA8vF7CyC2u)",
+      "Bash(VERCEL_TOKEN=zWQ54pWOouunibA8vF7CyC2u npx vercel dev:*)",
+      "Bash(pnpm i:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

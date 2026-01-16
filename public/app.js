@@ -1224,13 +1224,10 @@ function createDetailChart(player, enrichedHistory) {
 
   const color = PLAYER_COLORS[player.colorIndex];
 
-  // Prepare data - filter out entries with 0 LP
-  const validHistory = enrichedHistory.filter(h => h.totalLP > 0);
+  // Only show entries with actual match data (real games, not filler snapshots)
+  const validHistory = enrichedHistory.filter(h => h.totalLP > 0 && h.match && h.match.champion);
 
-  // Debug: log match data availability
-  const withMatch = validHistory.filter(h => h.match).length;
-  const withoutMatch = validHistory.length - withMatch;
-  console.log(`Detail chart: ${validHistory.length} points (${withMatch} with match data, ${withoutMatch} without)`);
+  console.log(`Detail chart: ${validHistory.length} real games (filtered from ${enrichedHistory.length} total entries)`);
 
   const labels = validHistory.map(h => formatTimestamp(h.timestamp));
   const data = validHistory.map(h => h.totalLP);
@@ -1251,18 +1248,15 @@ function createDetailChart(player, enrichedHistory) {
       datasets: [{
         label: player.gameName,
         data: data,
-        borderColor: color,
+        borderColor: color + '80', // Semi-transparent line
         backgroundColor: color + '20',
-        borderWidth: 3,
+        borderWidth: 2, // Thin line connecting games
         pointRadius: 6,
         pointHoverRadius: 10,
         pointBackgroundColor: validHistory.map(h => {
-          if (h.match) {
-            // win can be true/false or 't'/'f' from postgres
-            const isWin = h.match.win === true || h.match.win === 't';
-            return isWin ? '#4caf50' : '#ef5350';
-          }
-          return color;
+          // All entries now have match data (filtered above)
+          const isWin = h.match.win === true || h.match.win === 't';
+          return isWin ? '#4caf50' : '#ef5350';
         }),
         pointBorderColor: '#fff',
         pointBorderWidth: 2,

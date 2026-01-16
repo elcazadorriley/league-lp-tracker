@@ -221,13 +221,5 @@ const PRELOADED_PLAYERS = [
     "soloQueue": null,
     "history": [],
     "colorIndex": 7
-  },
-  {
-    "gameName": "RaciaI SIur",
-    "tagLine": "9999",
-    "region": "NA",
-    "soloQueue": null,
-    "history": [],
-    "colorIndex": 8
   }
 ];

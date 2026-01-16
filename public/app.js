@@ -188,11 +188,18 @@ async function loadPlayersFromDatabase() {
     const history = await response.json();
     if (!history || history.length === 0) return;
 
+    // Players to hide from frontend (data stays in DB)
+    const HIDDEN_PLAYERS = ['RaciaI SIur#9999'];
+
     // Group history by player
     const playerMap = new Map();
 
     history.forEach(entry => {
       const key = `${entry.game_name}#${entry.tag_line}`;
+
+      // Skip hidden players
+      if (HIDDEN_PLAYERS.includes(key)) return;
+
       if (!playerMap.has(key)) {
         playerMap.set(key, {
           gameName: entry.game_name,

@@ -545,6 +545,7 @@ h2 {
   font-size: 0.8rem;
   min-width: 180px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
 }
 
 .match-tooltip .champion-row {

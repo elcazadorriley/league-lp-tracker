@@ -1227,6 +1227,11 @@ function createDetailChart(player, enrichedHistory) {
   // Prepare data - filter out entries with 0 LP
   const validHistory = enrichedHistory.filter(h => h.totalLP > 0);
 
+  // Debug: log match data availability
+  const withMatch = validHistory.filter(h => h.match).length;
+  const withoutMatch = validHistory.length - withMatch;
+  console.log(`Detail chart: ${validHistory.length} points (${withMatch} with match data, ${withoutMatch} without)`);
+
   const labels = validHistory.map(h => formatTimestamp(h.timestamp));
   const data = validHistory.map(h => h.totalLP);
 
@@ -1235,6 +1240,9 @@ function createDetailChart(player, enrichedHistory) {
   const maxLP = Math.max(...data);
   const yMin = Math.max(0, Math.floor((minLP - 100) / 400) * 400);
   const yMax = Math.min(4000, Math.ceil((maxLP + 100) / 400) * 400);
+
+  // Store validHistory for tooltip access
+  const chartData = validHistory;
 
   detailChart = new Chart(ctx, {
     type: 'line',
@@ -1246,11 +1254,13 @@ function createDetailChart(player, enrichedHistory) {
         borderColor: color,
         backgroundColor: color + '20',
         borderWidth: 3,
-        pointRadius: 8,
-        pointHoverRadius: 12,
+        pointRadius: 6,
+        pointHoverRadius: 10,
         pointBackgroundColor: validHistory.map(h => {
           if (h.match) {
-            return h.match.win ? '#4caf50' : '#ef5350';
+            // win can be true/false or 't'/'f' from postgres
+            const isWin = h.match.win === true || h.match.win === 't';
+            return isWin ? '#4caf50' : '#ef5350';
           }
           return color;
         }),
@@ -1264,11 +1274,12 @@ function createDetailChart(player, enrichedHistory) {
       responsive: true,
       maintainAspectRatio: false,
       animation: {
-        duration: 500
+        duration: 300
       },
       interaction: {
-        intersect: true,
-        mode: 'point'
+        intersect: false,
+        mode: 'nearest',
+        axis: 'x'
       },
       plugins: {
         legend: {
@@ -1306,10 +1317,12 @@ function createDetailChart(player, enrichedHistory) {
               let html = '';
 
               // If match data available, show champion icon and stats
-              if (entry.match) {
+              if (entry.match && entry.match.champion) {
                 const champIconUrl = getChampionIconUrl(entry.match.championId);
-                const resultClass = entry.match.win ? 'victory' : 'defeat';
-                const resultText = entry.match.win ? 'Victory' : 'Defeat';
+                // Handle postgres boolean (can be true/false or 't'/'f')
+                const isWin = entry.match.win === true || entry.match.win === 't';
+                const resultClass = isWin ? 'victory' : 'defeat';
+                const resultText = isWin ? 'Victory' : 'Defeat';
 
                 html = `
                   <div class="champion-row">

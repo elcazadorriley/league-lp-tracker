@@ -27,9 +27,12 @@ league-lp-tracker/
 ├── src/
 │   └── server.js           # Local development server
 ├── scripts/                # Utility scripts
-│   ├── backfill.js         # Backfill historical data
-│   └── seed-db.js          # Seed database
-└── shared/                 # Shared constants (coming soon)
+│   └── backfill.js         # Backfill historical data
+├── shared/
+│   └── constants.js        # Shared constants (tiers, LP values)
+└── docs/                   # Documentation
+    ├── ROADMAP-COMMUNITIES.md
+    └── SESSION-NOTES.md
 ```
 
 ## Local Development
@@ -74,18 +77,14 @@ league-lp-tracker/
 
 ## Available Scripts
 
-- `npm start` - Run the production server
-- `npm run dev` - Run the development server with auto-reload
-- `npm run lint` - Run ESLint
-- `npm run format` - Format code with Prettier
-
-## Deployment
-
-The app is deployed on Vercel. Push to both remotes:
-
-```bash
-git push origin main && git push vercel main
-```
+| Command | Description |
+|---------|-------------|
+| `npm start` | Run the production server |
+| `npm run dev` | Run dev server with auto-reload |
+| `npm run lint` | Check for linting issues |
+| `npm run lint:fix` | Auto-fix linting issues |
+| `npm run format` | Format code with Prettier |
+| `npm run format:check` | Check formatting without changes |
 
 ## Database Schema
 
@@ -130,10 +129,48 @@ Fetch recent match history for a player from Riot API.
 
 ## Contributing
 
-1. Create a feature branch
+### Getting Started
+
+1. Fork the repo and clone your fork
+2. Install dependencies: `npm install`
+3. Copy `.env.example` to `.env` and add your credentials
+4. Start dev server: `npm run dev`
+5. Open http://localhost:3000
+
+### Making Changes
+
+1. Create a feature branch from `main`
 2. Make your changes
-3. Run `npm run lint` and `npm run format`
-4. Submit a pull request
+3. Run linting and formatting:
+   ```bash
+   npm run lint:fix
+   npm run format
+   ```
+4. Test locally with `npm run dev`
+5. Submit a pull request
+
+### Code Style
+
+- ESLint and Prettier are configured - run them before committing
+- Use `npm run lint:fix` to auto-fix linting issues
+- Use `npm run format` to format code
+
+### Key Files to Know
+
+| File | Purpose |
+|------|---------|
+| `public/app.js` | Main frontend logic, Chart.js rendering |
+| `public/player-data.js` | Player list configuration |
+| `api/rank.js` | Riot API proxy for current rank |
+| `api/history.js` | Database read/write for LP history |
+| `shared/constants.js` | Tier/LP calculation constants |
+
+### Deployment
+
+Push to both remotes for deployment:
+```bash
+git push origin main && git push vercel main
+```
 
 ## License
 

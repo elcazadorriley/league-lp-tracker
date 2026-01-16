@@ -23,14 +23,14 @@
 
 ### Stack Overview
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| Frontend | HTML, CSS, JavaScript | User interface and chart rendering |
-| Charting | Chart.js | Interactive LP progression visualization |
-| Backend | Vercel Serverless Functions | API proxy and database operations |
-| Database | Supabase (PostgreSQL) | Persistent storage for LP history |
-| Hosting | Vercel | Deployment and CDN |
-| External API | Riot Games API | Live ranked data retrieval |
+| Layer        | Technology                  | Purpose                                  |
+| ------------ | --------------------------- | ---------------------------------------- |
+| Frontend     | HTML, CSS, JavaScript       | User interface and chart rendering       |
+| Charting     | Chart.js                    | Interactive LP progression visualization |
+| Backend      | Vercel Serverless Functions | API proxy and database operations        |
+| Database     | Supabase (PostgreSQL)       | Persistent storage for LP history        |
+| Hosting      | Vercel                      | Deployment and CDN                       |
+| External API | Riot Games API              | Live ranked data retrieval               |
 
 ### System Architecture Diagram
 
@@ -68,21 +68,27 @@
 ### Endpoints Used
 
 #### 1. Account API - Get PUUID by Riot ID
+
 ```
 GET https://americas.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}
 ```
+
 **Purpose:** Retrieve the player's PUUID (Player Universally Unique Identifier) using their Riot ID (gameName#tagLine)
 
 **Response Data Used:**
+
 - `puuid` - Used to query League-specific endpoints
 
 #### 2. League API - Get Ranked Stats by Summoner ID
+
 ```
 GET https://{platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/{encryptedSummonerId}
 ```
+
 **Purpose:** Retrieve current ranked standings for Solo/Duo queue
 
 **Response Data Used:**
+
 - `tier` - Current rank tier (IRON, BRONZE, SILVER, GOLD, PLATINUM, EMERALD, DIAMOND, MASTER, GRANDMASTER, CHALLENGER)
 - `rank` - Division within tier (IV, III, II, I)
 - `leaguePoints` - Current LP within division
@@ -90,12 +96,15 @@ GET https://{platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/{encr
 - `losses` - Total ranked losses
 
 #### 3. Summoner API - Get Summoner by PUUID
+
 ```
 GET https://{platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}
 ```
+
 **Purpose:** Convert PUUID to encrypted Summoner ID for League API queries
 
 **Response Data Used:**
+
 - `id` - Encrypted Summoner ID
 
 ### API Call Flow
@@ -122,20 +131,20 @@ GET https://{platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puu
 
 ### Database Schema: `lp_history`
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | SERIAL | Primary key, auto-increment |
-| `player_id` | TEXT | Riot ID format: "GameName#TagLine" |
-| `game_name` | TEXT | Player's game name |
-| `tag_line` | TEXT | Player's tag line |
-| `region` | TEXT | Server region (NA, EUW, etc.) |
-| `total_lp` | INTEGER | Calculated total LP from Iron IV (0-4000+) |
-| `tier` | TEXT | Rank tier at time of record |
-| `rank` | TEXT | Division at time of record |
-| `lp` | INTEGER | LP within division |
-| `wins` | INTEGER | Total wins at time of record |
-| `losses` | INTEGER | Total losses at time of record |
-| `created_at` | TIMESTAMPTZ | Timestamp of data point |
+| Column       | Type        | Description                                |
+| ------------ | ----------- | ------------------------------------------ |
+| `id`         | SERIAL      | Primary key, auto-increment                |
+| `player_id`  | TEXT        | Riot ID format: "GameName#TagLine"         |
+| `game_name`  | TEXT        | Player's game name                         |
+| `tag_line`   | TEXT        | Player's tag line                          |
+| `region`     | TEXT        | Server region (NA, EUW, etc.)              |
+| `total_lp`   | INTEGER     | Calculated total LP from Iron IV (0-4000+) |
+| `tier`       | TEXT        | Rank tier at time of record                |
+| `rank`       | TEXT        | Division at time of record                 |
+| `lp`         | INTEGER     | LP within division                         |
+| `wins`       | INTEGER     | Total wins at time of record               |
+| `losses`     | INTEGER     | Total losses at time of record             |
+| `created_at` | TIMESTAMPTZ | Timestamp of data point                    |
 
 ### LP Calculation Formula
 
@@ -143,19 +152,19 @@ Total LP is calculated as a continuous scale from Iron IV (0 LP) to Challenger:
 
 ```javascript
 const RANK_VALUES = {
-  'IRON': 0,
-  'BRONZE': 400,
-  'SILVER': 800,
-  'GOLD': 1200,
-  'PLATINUM': 1600,
-  'EMERALD': 2000,
-  'DIAMOND': 2400,
-  'MASTER': 2800,
-  'GRANDMASTER': 3200,
-  'CHALLENGER': 3600
+  IRON: 0,
+  BRONZE: 400,
+  SILVER: 800,
+  GOLD: 1200,
+  PLATINUM: 1600,
+  EMERALD: 2000,
+  DIAMOND: 2400,
+  MASTER: 2800,
+  GRANDMASTER: 3200,
+  CHALLENGER: 3600,
 };
 
-const DIVISION_VALUES = { 'IV': 0, 'III': 100, 'II': 200, 'I': 300 };
+const DIVISION_VALUES = { IV: 0, III: 100, II: 200, I: 300 };
 
 // Example: Gold II with 45 LP = 1200 + 200 + 45 = 1445 total LP
 totalLP = RANK_VALUES[tier] + DIVISION_VALUES[rank] + leaguePoints;
@@ -166,11 +175,13 @@ totalLP = RANK_VALUES[tier] + DIVISION_VALUES[rank] + leaguePoints;
 ## Frontend Features
 
 ### Player Cards
+
 - Show LP change indicator (▲/▼) from last recorded game
 - Click to open player's OP.GG profile
 - Color-coded left border matching chart line color
 
 ### Interactive Chart
+
 - **Library:** Chart.js with zoom plugin
 - **X-Axis:** Timestamp of each data point
 - **Y-Axis:** Total LP with rank tier labels
@@ -181,6 +192,7 @@ totalLP = RANK_VALUES[tier] + DIVISION_VALUES[rank] + leaguePoints;
   - Pan and zoom support
 
 ### Responsive Design
+
 - Desktop: Side-by-side layout with player cards on left, chart on right
 - Mobile: Stacked layout with scrollable player cards
 
@@ -199,21 +211,23 @@ totalLP = RANK_VALUES[tier] + DIVISION_VALUES[rank] + leaguePoints;
 ## Current Limitations & Future Plans
 
 ### Current State
+
 - Tracks 7 predefined players in NA region
 - Manual refresh or 5-minute auto-refresh
 - Development API key requires daily renewal
 
 ### With Production API Key
+
 - **Reliability:** No daily key expiration interrupting service
 - **Scalability:** Potential to add more players or expand to other regions
 - **Features:** Could add match-by-match LP tracking using Match History API
 
 ### Potential Future Enhancements
+
 - User-configurable player list
 - Multi-region support
 - LP gain/loss statistics and averages
 - Rank milestone notifications
-
 
 ---
 
@@ -247,6 +261,6 @@ LP Tracker is a personal project built to help a group of friends visualize and 
 
 A production API key would provide the reliability needed for continuous operation without daily key renewals, ensuring the tracked players' progression history remains uninterrupted.
 
-My goal would be to create this, for everyone. I would like to change the site structure in a way that you would have an admin set up the player list, and a password, to which you can access your local communities data. I have hang-ups around data storage with this plan, TBD. 
+My goal would be to create this, for everyone. I would like to change the site structure in a way that you would have an admin set up the player list, and a password, to which you can access your local communities data. I have hang-ups around data storage with this plan, TBD.
 
 Thank you for considering this application.

@@ -10,42 +10,58 @@ const PLAYERS = [
   { gameName: 'Tortle', tagLine: 'Druid', region: 'NA' },
   { gameName: 'Keebles', tagLine: '6969', region: 'NA' },
   { gameName: 'Cedric Dube', tagLine: '420', region: 'NA' },
-  { gameName: 'Humble White Boy', tagLine: '666', region: 'NA' }
+  { gameName: 'Humble White Boy', tagLine: '666', region: 'NA' },
 ];
 
 const RANK_VALUES = {
-  'IRON': 0, 'BRONZE': 400, 'SILVER': 800, 'GOLD': 1200,
-  'PLATINUM': 1600, 'EMERALD': 2000, 'DIAMOND': 2400,
-  'MASTER': 2800, 'GRANDMASTER': 3200, 'CHALLENGER': 3600
+  IRON: 0,
+  BRONZE: 400,
+  SILVER: 800,
+  GOLD: 1200,
+  PLATINUM: 1600,
+  EMERALD: 2000,
+  DIAMOND: 2400,
+  MASTER: 2800,
+  GRANDMASTER: 3200,
+  CHALLENGER: 3600,
 };
-const DIV_VALUES = { 'IV': 0, 'III': 100, 'II': 200, 'I': 300 };
+const DIV_VALUES = { IV: 0, III: 100, II: 200, I: 300 };
 
 function rankToLP(tier, rank, lp) {
   const base = RANK_VALUES[tier] || 0;
-  const div = ['MASTER','GRANDMASTER','CHALLENGER'].includes(tier) ? 0 : (DIV_VALUES[rank] || 0);
+  const div = ['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(tier) ? 0 : DIV_VALUES[rank] || 0;
   return base + div + lp;
 }
 
 function fetch(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'X-Riot-Token': API_KEY } }, res => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch(e) { reject(new Error('JSON parse error: ' + data.slice(0,100))); }
-      });
-    }).on('error', reject);
+    https
+      .get(url, { headers: { 'X-Riot-Token': API_KEY } }, (res) => {
+        let data = '';
+        res.on('data', (c) => (data += c));
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(new Error('JSON parse error: ' + data.slice(0, 100)));
+          }
+        });
+      })
+      .on('error', reject);
   });
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 async function getPlayerData(player) {
   console.log(`\n=== ${player.gameName}#${player.tagLine} ===`);
 
   // Get PUUID
-  const account = await fetch(`https://americas.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(player.gameName)}/${encodeURIComponent(player.tagLine)}`);
+  const account = await fetch(
+    `https://americas.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(player.gameName)}/${encodeURIComponent(player.tagLine)}`
+  );
   if (!account.puuid) {
     console.log('Could not find player');
     return null;
@@ -54,22 +70,28 @@ async function getPlayerData(player) {
   await sleep(50);
 
   // Get current rank
-  const rankData = await fetch(`https://na1.api.riotgames.com/lol/league/v4/entries/by-puuid/${puuid}`);
-  const soloQ = rankData.find(q => q.queueType === 'RANKED_SOLO_5x5');
+  const rankData = await fetch(
+    `https://na1.api.riotgames.com/lol/league/v4/entries/by-puuid/${puuid}`
+  );
+  const soloQ = rankData.find((q) => q.queueType === 'RANKED_SOLO_5x5');
   if (!soloQ) {
     console.log('No ranked data');
     return null;
   }
 
   const currentLP = rankToLP(soloQ.tier, soloQ.rank, soloQ.leaguePoints);
-  console.log(`Current: ${soloQ.tier} ${soloQ.rank} ${soloQ.leaguePoints} LP (total: ${currentLP})`);
+  console.log(
+    `Current: ${soloQ.tier} ${soloQ.rank} ${soloQ.leaguePoints} LP (total: ${currentLP})`
+  );
   console.log(`Record: ${soloQ.wins}W ${soloQ.losses}L`);
   await sleep(50);
 
   // Get match history (queue 420 = ranked solo)
   // Start time: Jan 8, 2026 = 1767830400 (epoch seconds)
   const startTime = Math.floor(new Date('2026-01-08T00:00:00Z').getTime() / 1000);
-  const matchIds = await fetch(`https://americas.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?queue=420&startTime=${startTime}&count=100`);
+  const matchIds = await fetch(
+    `https://americas.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?queue=420&startTime=${startTime}&count=100`
+  );
 
   if (!Array.isArray(matchIds)) {
     console.log('Could not get matches:', matchIds);
@@ -82,16 +104,18 @@ async function getPlayerData(player) {
   for (let i = matchIds.length - 1; i >= 0; i--) {
     await sleep(120); // Rate limiting
     try {
-      const match = await fetch(`https://americas.api.riotgames.com/lol/match/v5/matches/${matchIds[i]}`);
+      const match = await fetch(
+        `https://americas.api.riotgames.com/lol/match/v5/matches/${matchIds[i]}`
+      );
       if (match.info) {
-        const participant = match.info.participants.find(p => p.puuid === puuid);
+        const participant = match.info.participants.find((p) => p.puuid === puuid);
         matches.push({
           date: new Date(match.info.gameCreation).toISOString(),
           win: participant.win,
-          champion: participant.championName
+          champion: participant.championName,
         });
       }
-    } catch(e) {
+    } catch (e) {
       console.log('Error fetching match:', e.message);
     }
   }
@@ -121,7 +145,7 @@ async function getPlayerData(player) {
     tagLine: account.tagLine,
     region: player.region,
     soloQueue: soloQ,
-    history: history
+    history: history,
   };
 }
 

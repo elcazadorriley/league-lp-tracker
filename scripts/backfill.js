@@ -17,31 +17,33 @@ const PLAYERS = [
   { gameName: 'Keebles', tagLine: '6969', region: 'NA' },
   { gameName: 'Cedric Dube', tagLine: '420', region: 'NA' },
   { gameName: 'Humble White Boy', tagLine: '666', region: 'NA' },
-  { gameName: 'Bugz', tagLine: '0627', region: 'NA' }
+  { gameName: 'Bugz', tagLine: '0627', region: 'NA' },
 ];
 
 const API_HOST = 'www.liftedf250.lol';
 
 function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 function httpsGet(url, headers = {}) {
   return new Promise((resolve, reject) => {
     const options = { headers: { 'X-Riot-Token': RIOT_API_KEY, ...headers } };
-    https.get(url, options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        if (res.statusCode === 200) {
-          resolve(JSON.parse(data));
-        } else if (res.statusCode === 429) {
-          reject(new Error('RATE_LIMITED'));
-        } else {
-          reject(new Error(`HTTP ${res.statusCode}: ${data}`));
-        }
-      });
-    }).on('error', reject);
+    https
+      .get(url, options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            resolve(JSON.parse(data));
+          } else if (res.statusCode === 429) {
+            reject(new Error('RATE_LIMITED'));
+          } else {
+            reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+          }
+        });
+      })
+      .on('error', reject);
   });
 }
 
@@ -54,12 +56,12 @@ function httpsPost(hostname, path, body) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData)
-      }
+        'Content-Length': Buffer.byteLength(postData),
+      },
     };
     const req = https.request(options, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.on('data', (chunk) => (data += chunk));
       res.on('end', () => resolve({ status: res.statusCode, data }));
     });
     req.on('error', reject);
@@ -86,11 +88,13 @@ async function fetchWithRetry(url, retries = 3) {
 
 async function getCurrentHistory() {
   return new Promise((resolve, reject) => {
-    https.get(`https://${API_HOST}/api/history`, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(JSON.parse(data)));
-    }).on('error', reject);
+    https
+      .get(`https://${API_HOST}/api/history`, (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => resolve(JSON.parse(data)));
+      })
+      .on('error', reject);
   });
 }
 
@@ -105,7 +109,7 @@ function totalLPToRank(totalLP) {
     { name: 'DIAMOND', base: 2400 },
     { name: 'MASTER', base: 2800 },
     { name: 'GRANDMASTER', base: 3200 },
-    { name: 'CHALLENGER', base: 3600 }
+    { name: 'CHALLENGER', base: 3600 },
   ];
 
   for (let i = tiers.length - 1; i >= 0; i--) {
@@ -119,7 +123,7 @@ function totalLPToRank(totalLP) {
       return {
         tier: tiers[i].name,
         rank: divisions[divIndex],
-        lp: lpInTier % 100
+        lp: lpInTier % 100,
       };
     }
   }
@@ -146,7 +150,7 @@ async function fetchMatchDetails(matchId, puuid) {
 
   if (match.info.queueId !== 420) return null; // Solo/Duo only
 
-  const participant = match.info.participants.find(p => p.puuid === puuid);
+  const participant = match.info.participants.find((p) => p.puuid === puuid);
   if (!participant) return null;
 
   return {
@@ -158,7 +162,7 @@ async function fetchMatchDetails(matchId, puuid) {
     kills: participant.kills,
     deaths: participant.deaths,
     assists: participant.assists,
-    win: participant.win
+    win: participant.win,
   };
 }
 
@@ -170,8 +174,8 @@ async function backfillMatchData(player, existingHistory, puuid, allMatches) {
 
   // Get player's existing entries without match data
   const playerHistory = existingHistory
-    .filter(h => h.game_name === player.gameName && h.tag_line === player.tagLine)
-    .filter(h => !h.match_id) // Only entries missing match data
+    .filter((h) => h.game_name === player.gameName && h.tag_line === player.tagLine)
+    .filter((h) => !h.match_id) // Only entries missing match data
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
   if (playerHistory.length === 0) {
@@ -187,7 +191,7 @@ async function backfillMatchData(player, existingHistory, puuid, allMatches) {
     const entryTime = new Date(entry.created_at).getTime();
 
     // Find a match that ended within 30 minutes before this entry
-    const matchingMatch = allMatches.find(m => {
+    const matchingMatch = allMatches.find((m) => {
       const timeDiff = entryTime - m.gameEndTimestamp;
       return timeDiff >= 0 && timeDiff < 30 * 60 * 1000;
     });
@@ -195,7 +199,9 @@ async function backfillMatchData(player, existingHistory, puuid, allMatches) {
     if (matchingMatch) {
       // Update this entry with match data via POST (creates new entry)
       // Note: Ideally we'd use PATCH/PUT, but we're creating enriched entries
-      console.log(`  ${entry.created_at}: ${matchingMatch.champion} ${matchingMatch.kills}/${matchingMatch.deaths}/${matchingMatch.assists}`);
+      console.log(
+        `  ${entry.created_at}: ${matchingMatch.champion} ${matchingMatch.kills}/${matchingMatch.deaths}/${matchingMatch.assists}`
+      );
 
       const body = {
         player_id: `${player.gameName}#${player.tagLine}`,
@@ -216,7 +222,7 @@ async function backfillMatchData(player, existingHistory, puuid, allMatches) {
         kills: matchingMatch.kills,
         deaths: matchingMatch.deaths,
         assists: matchingMatch.assists,
-        game_win: matchingMatch.win
+        game_win: matchingMatch.win,
       };
 
       await httpsPost(API_HOST, '/api/history', body);
@@ -237,7 +243,7 @@ async function fillHistoryGaps(player, existingHistory, puuid, allMatches) {
   console.log('='.repeat(50));
 
   const playerHistory = existingHistory
-    .filter(h => h.game_name === player.gameName && h.tag_line === player.tagLine)
+    .filter((h) => h.game_name === player.gameName && h.tag_line === player.tagLine)
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
   if (playerHistory.length < 2) {
@@ -258,7 +264,7 @@ async function fillHistoryGaps(player, existingHistory, puuid, allMatches) {
       gaps.push({
         start: { timestamp: current.created_at, totalLP: current.total_lp },
         end: { timestamp: next.created_at, totalLP: next.total_lp },
-        lpDiff
+        lpDiff,
       });
     }
   }
@@ -279,8 +285,8 @@ async function fillHistoryGaps(player, existingHistory, puuid, allMatches) {
     const endTime = new Date(gap.end.timestamp).getTime();
 
     // Find matches in this gap
-    const matchesInGap = allMatches.filter(m =>
-      m.gameEndTimestamp > startTime && m.gameEndTimestamp < endTime
+    const matchesInGap = allMatches.filter(
+      (m) => m.gameEndTimestamp > startTime && m.gameEndTimestamp < endTime
     );
 
     if (matchesInGap.length === 0) {
@@ -291,14 +297,17 @@ async function fillHistoryGaps(player, existingHistory, puuid, allMatches) {
     // Sort by time
     matchesInGap.sort((a, b) => a.gameEndTimestamp - b.gameEndTimestamp);
 
-    const wins = matchesInGap.filter(m => m.win).length;
-    const losses = matchesInGap.filter(m => !m.win).length;
+    const wins = matchesInGap.filter((m) => m.win).length;
+    const losses = matchesInGap.filter((m) => !m.win).length;
     const totalLPChange = gap.end.totalLP - gap.start.totalLP;
 
-    console.log(`  Found ${matchesInGap.length} matches (${wins}W ${losses}L), Net LP: ${totalLPChange}`);
+    console.log(
+      `  Found ${matchesInGap.length} matches (${wins}W ${losses}L), Net LP: ${totalLPChange}`
+    );
 
     // Estimate LP per game
-    let lpPerWin = 22, lpPerLoss = 17;
+    let lpPerWin = 22,
+      lpPerLoss = 17;
     if (wins > 0 && losses > 0) {
       lpPerWin = Math.round((totalLPChange + losses * lpPerLoss) / wins);
       lpPerWin = Math.max(15, Math.min(30, lpPerWin));
@@ -338,7 +347,7 @@ async function fillHistoryGaps(player, existingHistory, puuid, allMatches) {
         kills: match.kills,
         deaths: match.deaths,
         assists: match.assists,
-        game_win: match.win
+        game_win: match.win,
       };
 
       await httpsPost(API_HOST, '/api/history', body);
@@ -404,7 +413,8 @@ async function main() {
   const existingHistory = await getCurrentHistory();
   console.log(`Found ${existingHistory.length} total entries in database`);
 
-  let totalGaps = 0, totalMatchData = 0;
+  let totalGaps = 0,
+    totalMatchData = 0;
 
   for (const player of PLAYERS) {
     const result = await processPlayer(player, existingHistory);

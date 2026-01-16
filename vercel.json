@@ -1,6 +1,9 @@
 {
   "rewrites": [
-    { "source": "/api/rank/:region/:gameName/:tagLine", "destination": "/api/rank?region=:region&gameName=:gameName&tagLine=:tagLine" },
+    {
+      "source": "/api/rank/:region/:gameName/:tagLine",
+      "destination": "/api/rank?region=:region&gameName=:gameName&tagLine=:tagLine"
+    },
     { "source": "/api/history", "destination": "/api/history" },
     { "source": "/api/matches", "destination": "/api/matches" },
     { "source": "/(.*)", "destination": "/public/$1" }

@@ -1,20 +1,63 @@
-// State
+/**
+ * LP Tracker Frontend Application
+ *
+ * This file contains the main frontend logic for the LP Tracker app.
+ * It handles player data management, chart rendering, and UI interactions.
+ *
+ * @fileoverview Main frontend application for League LP tracking
+ */
+
+// =============================================================================
+// STATE MANAGEMENT
+// =============================================================================
+
+/** @type {Array<Player>} All tracked players with their data */
 let players = [];
+
+/** @type {Chart|null} Main Chart.js instance */
 let chart = null;
-let selectedPlayers = new Set(); // Track clicked/filtered players
+
+/** @type {Set<number>} Indices of currently selected/filtered players */
+let selectedPlayers = new Set();
+
+/** @type {Date|null} Last data refresh timestamp */
 let lastUpdated = null;
+
+/** @type {number|null} Auto-refresh interval ID */
 let autoRefreshInterval = null;
-const AUTO_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
-const VISIBLE_POINTS = 20; // Number of data points visible at once
-let allTimestamps = []; // Store all timestamps for slider
-let overviewMode = true; // Toggle for showing all data vs timeline view (default: overview)
+
+/** @type {number} Auto-refresh interval in milliseconds (5 minutes) */
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
+
+/** @type {number} Number of data points visible in timeline view */
+const VISIBLE_POINTS = 20;
+
+/** @type {Array<string>} All timestamps for timeline slider */
+let allTimestamps = [];
+
+/** @type {boolean} Whether showing overview (all data) vs timeline view */
+let overviewMode = true;
 
 // Detail View State
+/** @type {Chart|null} Detail view Chart.js instance */
 let detailChart = null;
-let currentDetailPlayer = null;
-let playerMatchCache = new Map(); // Cache match data per player
 
-// HARDCODED TRACKED PLAYERS
+/** @type {Player|null} Currently displayed player in detail view */
+let currentDetailPlayer = null;
+
+/** @type {Map<string, Array>} Cache of match data per player key */
+let playerMatchCache = new Map();
+
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+/**
+ * List of tracked players.
+ * Each player object contains their Riot ID and region.
+ *
+ * @type {Array<{gameName: string, tagLine: string, region: string}>}
+ */
 const TRACKED_PLAYERS = [
   { gameName: 'i am sad haha', tagLine: 'NA1', region: 'NA' },
   { gameName: 'xty', tagLine: '001', region: 'NA' },
@@ -23,26 +66,51 @@ const TRACKED_PLAYERS = [
   { gameName: 'Keebles', tagLine: '6969', region: 'NA' },
   { gameName: 'Cedric Dube', tagLine: '420', region: 'NA' },
   { gameName: 'Humble White Boy', tagLine: '666', region: 'NA' },
-  { gameName: 'Bugz', tagLine: '0627', region: 'NA' }
+  { gameName: 'Bugz', tagLine: '0627', region: 'NA' },
 ];
 
-// Rank order for LP calculation (total LP from Iron IV)
+/**
+ * Rank tier values for LP calculation.
+ * Base LP is the minimum LP for that tier (from Iron IV = 0).
+ *
+ * @type {Object.<string, {base: number, order: number}>}
+ */
 const RANK_VALUES = {
-  'IRON': { base: 0, order: 0 },
-  'BRONZE': { base: 400, order: 1 },
-  'SILVER': { base: 800, order: 2 },
-  'GOLD': { base: 1200, order: 3 },
-  'PLATINUM': { base: 1600, order: 4 },
-  'EMERALD': { base: 2000, order: 5 },
-  'DIAMOND': { base: 2400, order: 6 },
-  'MASTER': { base: 2800, order: 7 },
-  'GRANDMASTER': { base: 3200, order: 8 },
-  'CHALLENGER': { base: 3600, order: 9 }
+  IRON: { base: 0, order: 0 },
+  BRONZE: { base: 400, order: 1 },
+  SILVER: { base: 800, order: 2 },
+  GOLD: { base: 1200, order: 3 },
+  PLATINUM: { base: 1600, order: 4 },
+  EMERALD: { base: 2000, order: 5 },
+  DIAMOND: { base: 2400, order: 6 },
+  MASTER: { base: 2800, order: 7 },
+  GRANDMASTER: { base: 3200, order: 8 },
+  CHALLENGER: { base: 3600, order: 9 },
 };
 
-const DIVISION_VALUES = { 'IV': 0, 'III': 100, 'II': 200, 'I': 300 };
+/**
+ * Division values for LP calculation within a tier.
+ * @type {Object.<string, number>}
+ */
+const DIVISION_VALUES = { IV: 0, III: 100, II: 200, I: 300 };
 
-// Convert rank to total LP (for graphing)
+// =============================================================================
+// LP CALCULATION FUNCTIONS
+// =============================================================================
+
+/**
+ * Converts a rank (tier, division, LP) to a single total LP value.
+ * Used for graphing players on the same scale.
+ *
+ * @param {string} tier - Rank tier (e.g., 'GOLD', 'PLATINUM')
+ * @param {string} rank - Division within tier (e.g., 'I', 'II', 'III', 'IV')
+ * @param {number} lp - League points within the division (0-99)
+ * @returns {number} Total LP from Iron IV (0)
+ *
+ * @example
+ * rankToTotalLP('GOLD', 'IV', 50) // Returns 1250 (1200 base + 0 division + 50 LP)
+ * rankToTotalLP('MASTER', '', 100) // Returns 2900 (2800 base + 100 LP)
+ */
 function rankToTotalLP(tier, rank, lp) {
   if (!tier || !RANK_VALUES[tier]) return 0;
   if (['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(tier)) {
@@ -51,7 +119,17 @@ function rankToTotalLP(tier, rank, lp) {
   return RANK_VALUES[tier].base + (DIVISION_VALUES[rank] || 0) + lp;
 }
 
-// Convert total LP back to readable rank
+/**
+ * Converts a total LP value back to a readable rank object.
+ * Inverse of rankToTotalLP().
+ *
+ * @param {number} totalLP - Total LP from Iron IV (0)
+ * @returns {{tier: string, division: string, lp: number}} Rank object
+ *
+ * @example
+ * totalLPToRank(1250) // Returns { tier: 'Gold', division: 'IV', lp: 50 }
+ * totalLPToRank(2900) // Returns { tier: 'Master', division: '', lp: 100 }
+ */
 function totalLPToRank(totalLP) {
   if (totalLP >= 3600) return { tier: 'Challenger', division: '', lp: totalLP - 3600 };
   if (totalLP >= 3200) return { tier: 'Grandmaster', division: '', lp: totalLP - 3200 };
@@ -68,12 +146,16 @@ function totalLPToRank(totalLP) {
   return {
     tier: tiers[tierIndex] || 'Iron',
     division: divisions[divIndex] || 'IV',
-    lp: lp
+    lp: lp,
   };
 }
 
-// Colorblind-friendly high contrast colors (Wong palette + additions)
-// These colors are distinguishable for deuteranopia, protanopia, and tritanopia
+/**
+ * Colorblind-friendly color palette for player chart lines.
+ * Based on Wong palette, distinguishable for deuteranopia, protanopia, and tritanopia.
+ *
+ * @type {Array<string>}
+ */
 const PLAYER_COLORS = [
   '#0077BB', // Strong Blue
   '#EE7733', // Orange
@@ -84,7 +166,7 @@ const PLAYER_COLORS = [
   '#BBBB00', // Olive/Yellow
   '#332288', // Indigo
   '#66CC33', // Lime Green
-  '#882255'  // Wine
+  '#882255', // Wine
 ];
 
 // Initialize on page load
@@ -108,8 +190,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Merge any new players from PRELOADED_PLAYERS that aren't in the database yet
   if (typeof PRELOADED_PLAYERS !== 'undefined') {
-    const existingKeys = new Set(players.map(p => `${p.gameName}#${p.tagLine}`));
-    PRELOADED_PLAYERS.forEach(preloaded => {
+    const existingKeys = new Set(players.map((p) => `${p.gameName}#${p.tagLine}`));
+    PRELOADED_PLAYERS.forEach((preloaded) => {
       const key = `${preloaded.gameName}#${preloaded.tagLine}`;
       if (!existingKeys.has(key)) {
         players.push(JSON.parse(JSON.stringify(preloaded)));
@@ -132,12 +214,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Initialize players from hardcoded list
 async function initializePlayers() {
   const container = document.getElementById('player-cards');
-  container.innerHTML = '<div style="color: #00d4ff; font-size: 0.8rem; text-align: center; padding: 20px;">// INITIALIZING SURVEILLANCE...</div>';
+  container.innerHTML =
+    '<div style="color: #00d4ff; font-size: 0.8rem; text-align: center; padding: 20px;">// INITIALIZING SURVEILLANCE...</div>';
 
   for (let i = 0; i < TRACKED_PLAYERS.length; i++) {
     const tracked = TRACKED_PLAYERS[i];
     try {
-      const response = await fetch(`/api/rank/${tracked.region}/${encodeURIComponent(tracked.gameName)}/${encodeURIComponent(tracked.tagLine)}`);
+      const response = await fetch(
+        `/api/rank/${tracked.region}/${encodeURIComponent(tracked.gameName)}/${encodeURIComponent(tracked.tagLine)}`
+      );
       const data = await response.json();
 
       if (response.ok) {
@@ -147,11 +232,19 @@ async function initializePlayers() {
           region: data.region,
           soloQueue: data.soloQueue,
           flexQueue: data.flexQueue,
-          history: [{
-            timestamp: data.timestamp,
-            totalLP: data.soloQueue ? rankToTotalLP(data.soloQueue.tier, data.soloQueue.rank, data.soloQueue.leaguePoints) : 0
-          }],
-          colorIndex: i % PLAYER_COLORS.length
+          history: [
+            {
+              timestamp: data.timestamp,
+              totalLP: data.soloQueue
+                ? rankToTotalLP(
+                    data.soloQueue.tier,
+                    data.soloQueue.rank,
+                    data.soloQueue.leaguePoints
+                  )
+                : 0,
+            },
+          ],
+          colorIndex: i % PLAYER_COLORS.length,
         };
         players.push(player);
       }
@@ -194,7 +287,7 @@ async function loadPlayersFromDatabase() {
     // Group history by player
     const playerMap = new Map();
 
-    history.forEach(entry => {
+    history.forEach((entry) => {
       const key = `${entry.game_name}#${entry.tag_line}`;
 
       // Skip hidden players
@@ -210,18 +303,18 @@ async function loadPlayersFromDatabase() {
             rank: entry.rank,
             leaguePoints: entry.lp,
             wins: entry.wins,
-            losses: entry.losses
+            losses: entry.losses,
           },
           history: [],
           historyMap: new Map(), // Track by timestamp+LP to dedupe
-          colorIndex: playerMap.size % PLAYER_COLORS.length
+          colorIndex: playerMap.size % PLAYER_COLORS.length,
         });
       }
       // Skip unranked entries (don't plot 0 LP points from before placement)
       if (entry.tier !== 'UNRANKED' && entry.total_lp > 0) {
         const historyEntry = {
           timestamp: entry.created_at,
-          totalLP: entry.total_lp
+          totalLP: entry.total_lp,
         };
 
         // Include match data if available
@@ -233,7 +326,7 @@ async function loadPlayersFromDatabase() {
             kills: entry.kills,
             deaths: entry.deaths,
             assists: entry.assists,
-            win: entry.game_win
+            win: entry.game_win,
           };
         }
 
@@ -249,13 +342,13 @@ async function loadPlayersFromDatabase() {
     });
 
     // Convert historyMap to history array for each player
-    playerMap.forEach(player => {
+    playerMap.forEach((player) => {
       player.history = Array.from(player.historyMap.values());
       delete player.historyMap; // Clean up temp map
     });
 
     // Update soloQueue with most recent data for each player
-    playerMap.forEach(player => {
+    playerMap.forEach((player) => {
       if (player.history.length > 0) {
         player.history.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       }
@@ -281,7 +374,7 @@ async function saveToDatabase(player, totalLP, matchData = null) {
       rank: player.soloQueue?.rank || '',
       lp: player.soloQueue?.leaguePoints || 0,
       wins: player.soloQueue?.wins || 0,
-      losses: player.soloQueue?.losses || 0
+      losses: player.soloQueue?.losses || 0,
     };
 
     // Add match data if provided
@@ -298,10 +391,15 @@ async function saveToDatabase(player, totalLP, matchData = null) {
     const response = await fetch('/api/history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
     if (!response.ok) throw new Error('Failed to save');
-    console.log('Saved to database:', player.gameName, totalLP, matchData ? `(${matchData.champion})` : '');
+    console.log(
+      'Saved to database:',
+      player.gameName,
+      totalLP,
+      matchData ? `(${matchData.champion})` : ''
+    );
   } catch (error) {
     console.error('Failed to save to database:', error);
   }
@@ -333,7 +431,13 @@ function getSortedPlayers() {
   return [...players].sort((a, b) => getCurrentLP(b) - getCurrentLP(a));
 }
 
-// Refresh a player's data
+/**
+ * Refreshes a single player's rank data from the Riot API.
+ * Updates the player's soloQueue data and history, then re-renders the UI.
+ *
+ * @param {number} index - Index of the player in the sorted players array
+ * @returns {Promise<void>}
+ */
 async function refreshPlayer(index) {
   const sorted = getSortedPlayers();
   const player = sorted[index];
@@ -341,7 +445,9 @@ async function refreshPlayer(index) {
   card.classList.add('loading');
 
   try {
-    const response = await fetch(`/api/rank/${player.region}/${encodeURIComponent(player.gameName)}/${encodeURIComponent(player.tagLine)}`);
+    const response = await fetch(
+      `/api/rank/${player.region}/${encodeURIComponent(player.gameName)}/${encodeURIComponent(player.tagLine)}`
+    );
     const data = await response.json();
 
     if (!response.ok) {
@@ -349,28 +455,28 @@ async function refreshPlayer(index) {
     }
 
     // Find in original array
-    const actualPlayer = players.find(p =>
-      p.gameName === player.gameName &&
-      p.tagLine === player.tagLine
+    const actualPlayer = players.find(
+      (p) => p.gameName === player.gameName && p.tagLine === player.tagLine
     );
 
     actualPlayer.soloQueue = data.soloQueue;
     actualPlayer.flexQueue = data.flexQueue;
 
-    const newTotalLP = data.soloQueue ? rankToTotalLP(data.soloQueue.tier, data.soloQueue.rank, data.soloQueue.leaguePoints) : 0;
+    const newTotalLP = data.soloQueue
+      ? rankToTotalLP(data.soloQueue.tier, data.soloQueue.rank, data.soloQueue.leaguePoints)
+      : 0;
     const lastEntry = actualPlayer.history[actualPlayer.history.length - 1];
 
     if (!lastEntry || lastEntry.totalLP !== newTotalLP) {
       actualPlayer.history.push({
         timestamp: data.timestamp,
-        totalLP: newTotalLP
+        totalLP: newTotalLP,
       });
     }
 
     savePlayersToStorage();
     renderPlayers();
     updateChart();
-
   } catch (error) {
     console.error(`Failed to refresh ${player.gameName}:`, error.message);
   } finally {
@@ -378,7 +484,12 @@ async function refreshPlayer(index) {
   }
 }
 
-// Refresh all players (internal)
+/**
+ * Refreshes all players sequentially.
+ * Internal function used by auto-refresh.
+ *
+ * @returns {Promise<void>}
+ */
 async function refreshAll() {
   for (let i = 0; i < players.length; i++) {
     await refreshPlayer(i);
@@ -396,14 +507,18 @@ async function refreshAllPlayers() {
   let refreshedCount = 0;
   for (const player of players) {
     try {
-      const response = await fetch(`/api/rank/${player.region}/${encodeURIComponent(player.gameName)}/${encodeURIComponent(player.tagLine)}`);
+      const response = await fetch(
+        `/api/rank/${player.region}/${encodeURIComponent(player.gameName)}/${encodeURIComponent(player.tagLine)}`
+      );
       const data = await response.json();
 
       if (response.ok) {
         player.soloQueue = data.soloQueue;
         player.flexQueue = data.flexQueue;
 
-        const newTotalLP = data.soloQueue ? rankToTotalLP(data.soloQueue.tier, data.soloQueue.rank, data.soloQueue.leaguePoints) : 0;
+        const newTotalLP = data.soloQueue
+          ? rankToTotalLP(data.soloQueue.tier, data.soloQueue.rank, data.soloQueue.leaguePoints)
+          : 0;
         const lastEntry = player.history[player.history.length - 1];
 
         if (!lastEntry || lastEntry.totalLP !== newTotalLP) {
@@ -413,7 +528,7 @@ async function refreshAllPlayers() {
           player.history.push({
             timestamp: data.timestamp,
             totalLP: newTotalLP,
-            match: recentMatch
+            match: recentMatch,
           });
 
           // Save to database with match data
@@ -426,7 +541,7 @@ async function refreshAllPlayers() {
     }
 
     // Small delay to avoid rate limiting
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 200));
     btn.textContent = `Refreshing ${refreshedCount}/${players.length}...`;
   }
 
@@ -517,31 +632,33 @@ function renderPlayers() {
   const container = document.getElementById('player-cards');
 
   if (players.length === 0) {
-    container.innerHTML = '<div style="color: #333; font-size: 0.8rem; text-align: center; padding: 20px;">// NO DATA</div>';
+    container.innerHTML =
+      '<div style="color: #333; font-size: 0.8rem; text-align: center; padding: 20px;">// NO DATA</div>';
     return;
   }
 
   const sorted = getSortedPlayers();
 
-  container.innerHTML = sorted.map((player, index) => {
-    const rank = player.soloQueue;
-    const tier = rank ? rank.tier : 'UNRANKED';
-    const division = rank ? rank.rank : '';
-    const lp = rank ? rank.leaguePoints : 0;
-    const wins = rank ? rank.wins : 0;
-    const losses = rank ? rank.losses : 0;
-    const winRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
-    const color = PLAYER_COLORS[player.colorIndex];
-    const lpChange = getLPChangeArrow(player);
+  container.innerHTML = sorted
+    .map((player, index) => {
+      const rank = player.soloQueue;
+      const tier = rank ? rank.tier : 'UNRANKED';
+      const division = rank ? rank.rank : '';
+      const lp = rank ? rank.leaguePoints : 0;
+      const wins = rank ? rank.wins : 0;
+      const losses = rank ? rank.losses : 0;
+      const winRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
+      const color = PLAYER_COLORS[player.colorIndex];
+      const lpChange = getLPChangeArrow(player);
 
-    const rankIconUrl = getRankIconUrl(tier);
-    const rankBadge = rankIconUrl
-      ? `<img src="${rankIconUrl}" alt="${tier}" class="rank-icon" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="rank-badge rank-${tier.toLowerCase()}" style="display:none">${tier.slice(0, 3)}${division ? '<br>' + division : ''}</div>`
-      : `<div class="rank-badge rank-${tier.toLowerCase()}">${tier.slice(0, 3)}${division ? '<br>' + division : ''}</div>`;
+      const rankIconUrl = getRankIconUrl(tier);
+      const rankBadge = rankIconUrl
+        ? `<img src="${rankIconUrl}" alt="${tier}" class="rank-icon" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="rank-badge rank-${tier.toLowerCase()}" style="display:none">${tier.slice(0, 3)}${division ? '<br>' + division : ''}</div>`
+        : `<div class="rank-badge rank-${tier.toLowerCase()}">${tier.slice(0, 3)}${division ? '<br>' + division : ''}</div>`;
 
-    const opggUrl = `https://www.op.gg/summoners/na/${encodeURIComponent(player.gameName)}-${encodeURIComponent(player.tagLine)}`;
+      const opggUrl = `https://www.op.gg/summoners/na/${encodeURIComponent(player.gameName)}-${encodeURIComponent(player.tagLine)}`;
 
-    return `
+      return `
       <div class="player-card" onclick="showPlayerDetailView(${index})" style="border-left-color: ${color}">
         <a href="${opggUrl}" target="_blank" class="opgg-icon" onclick="event.stopPropagation()" title="View on OP.GG">OP.GG</a>
         <div class="player-header">
@@ -559,7 +676,8 @@ function renderPlayers() {
         </div>
       </div>
     `;
-  }).join('');
+    })
+    .join('');
 }
 
 // Initialize Chart.js with Riot-style theming
@@ -570,31 +688,34 @@ function initChart() {
     type: 'line',
     data: {
       labels: [],
-      datasets: []
+      datasets: [],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: {
         duration: 1000,
-        easing: 'easeOutQuart'
+        easing: 'easeOutQuart',
       },
       interaction: {
         intersect: false,
         mode: 'nearest',
-        axis: 'xy'
+        axis: 'xy',
       },
       onHover: (event, elements, chartInstance) => {
         // Check if mouse is within the chart area
         const chartArea = chartInstance.chartArea;
         const mouseX = event.x;
         const mouseY = event.y;
-        const isInChartArea = mouseX >= chartArea.left && mouseX <= chartArea.right &&
-                              mouseY >= chartArea.top && mouseY <= chartArea.bottom;
+        const isInChartArea =
+          mouseX >= chartArea.left &&
+          mouseX <= chartArea.right &&
+          mouseY >= chartArea.top &&
+          mouseY <= chartArea.bottom;
 
         if (!isInChartArea) {
           // Mouse is outside chart area - reset dots
-          chartInstance.data.datasets.forEach(dataset => {
+          chartInstance.data.datasets.forEach((dataset) => {
             dataset.pointRadius = 0;
           });
           if (selectedPlayers.size > 0) {
@@ -633,7 +754,7 @@ function initChart() {
             font: {
               family: "'Inter', 'Segoe UI', sans-serif",
               size: 12,
-              weight: '500'
+              weight: '500',
             },
             padding: 16,
             usePointStyle: false,
@@ -647,10 +768,10 @@ function initChart() {
                   lineWidth: 2,
                   hidden: false,
                   datasetIndex: index,
-                  fontColor: isSelected ? '#1a1a1a' : '#888'
+                  fontColor: isSelected ? '#1a1a1a' : '#888',
                 };
               });
-            }
+            },
           },
           onClick: (event, legendItem, legend) => {
             const index = legendItem.datasetIndex;
@@ -668,7 +789,7 @@ function initChart() {
             }
             // Update legend to show checkbox state
             legend.chart.update('none');
-          }
+          },
         },
         tooltip: {
           backgroundColor: '#1a1a1a',
@@ -677,14 +798,14 @@ function initChart() {
           titleFont: {
             family: "'Inter', 'Segoe UI', sans-serif",
             size: 12,
-            weight: '600'
+            weight: '600',
           },
           bodyFont: {
             family: "'Inter', 'Segoe UI', sans-serif",
-            size: 13
+            size: 13,
           },
           padding: 12,
-          filter: function(tooltipItem) {
+          filter: function (tooltipItem) {
             // If filtering is active, only show tooltip for selected players
             if (selectedPlayers.size > 0) {
               return selectedPlayers.has(tooltipItem.datasetIndex);
@@ -692,47 +813,47 @@ function initChart() {
             return true;
           },
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               if (context.raw === null) return '';
               const rankInfo = totalLPToRank(context.raw);
               const rankStr = rankInfo.division
                 ? `${rankInfo.tier} ${rankInfo.division}`
                 : rankInfo.tier;
               return `${context.dataset.label}: ${rankStr} ${rankInfo.lp} LP`;
-            }
-          }
+            },
+          },
         },
         zoom: {
           pan: {
             enabled: true,
             mode: 'x',
-            onPan: function({ chart }) {
+            onPan: function ({ chart }) {
               updateSliderFromChart(chart);
-            }
+            },
           },
           limits: {
-            x: { minRange: 5 }
-          }
-        }
+            x: { minRange: 5 },
+          },
+        },
       },
       scales: {
         x: {
           grid: {
             color: 'rgba(0, 0, 0, 0.08)',
-            lineWidth: 1
+            lineWidth: 1,
           },
           ticks: {
             color: '#666',
             font: {
               family: "'Inter', 'Segoe UI', sans-serif",
               size: 11,
-              weight: '500'
+              weight: '500',
             },
             maxRotation: 45,
             minRotation: 0,
             autoSkip: true,
-            maxTicksLimit: 12
-          }
+            maxTicksLimit: 12,
+          },
         },
         y: {
           grid: {
@@ -744,17 +865,17 @@ function initChart() {
             },
             lineWidth: (context) => {
               return context.tick.value % 400 === 0 ? 2 : 1;
-            }
+            },
           },
           ticks: {
             color: '#1a1a1a',
             font: {
               family: "'Inter', 'Segoe UI', sans-serif",
               size: 11,
-              weight: '600'
+              weight: '600',
             },
             stepSize: 100,
-            callback: function(value) {
+            callback: function (value) {
               const rankInfo = totalLPToRank(value);
               if (value % 400 === 0) {
                 return `${rankInfo.tier} ${rankInfo.division}`.toUpperCase();
@@ -763,11 +884,11 @@ function initChart() {
                 return rankInfo.division;
               }
               return '';
-            }
-          }
-        }
-      }
-    }
+            },
+          },
+        },
+      },
+    },
   });
 
   // Add mouseleave handler to reset chart when mouse exits
@@ -956,11 +1077,11 @@ function calculateYAxisRange() {
   let minLP = Infinity;
   let maxLP = -Infinity;
 
-  players.forEach(p => {
+  players.forEach((p) => {
     // Skip unranked players (no soloQueue data)
     if (!p.soloQueue) return;
 
-    p.history.forEach(h => {
+    p.history.forEach((h) => {
       // Skip entries with 0 LP (unranked)
       if (h.totalLP === 0) return;
       if (h.totalLP < minLP) minLP = h.totalLP;
@@ -979,7 +1100,12 @@ function calculateYAxisRange() {
   return { min: minBoundary, max: maxBoundary };
 }
 
-// Format timestamp for X-axis label
+/**
+ * Formats an ISO timestamp for display on the chart X-axis.
+ *
+ * @param {string} timestamp - ISO timestamp string
+ * @returns {string} Formatted string like "01/15 14:30"
+ */
 function formatTimestamp(timestamp) {
   const date = new Date(timestamp);
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -989,14 +1115,18 @@ function formatTimestamp(timestamp) {
   return `${month}/${day} ${hours}:${mins}`;
 }
 
-// Update chart with player data
+/**
+ * Updates the main chart with current player data.
+ * Recalculates timestamps, datasets, and Y-axis range.
+ * Called after any data change (refresh, load, etc.).
+ */
 function updateChart() {
   if (!chart) return;
 
   // Collect all unique timestamps across all players
   const timestampSet = new Set();
-  players.forEach(p => {
-    p.history.forEach(h => {
+  players.forEach((p) => {
+    p.history.forEach((h) => {
       timestampSet.add(h.timestamp);
     });
   });
@@ -1009,7 +1139,7 @@ function updateChart() {
   chart.options.scales.y.max = yRange.max;
 
   // Format labels for display
-  chart.data.labels = allTimestamps.map(ts => formatTimestamp(ts));
+  chart.data.labels = allTimestamps.map((ts) => formatTimestamp(ts));
 
   // Set initial view - Overview mode shows ALL data from the beginning
   const slider = document.getElementById('timeline-slider');
@@ -1022,18 +1152,18 @@ function updateChart() {
   // Update timeline labels
   updateTimelineLabels(chart.options.scales.x.min, chart.options.scales.x.max);
 
-  chart.data.datasets = players.map(player => {
+  chart.data.datasets = players.map((player) => {
     const color = PLAYER_COLORS[player.colorIndex];
 
     // For each timestamp, find player's LP at that time or the most recent before it
-    const data = allTimestamps.map(ts => {
+    const data = allTimestamps.map((ts) => {
       // Find exact match first
-      const exactMatch = player.history.find(h => h.timestamp === ts);
+      const exactMatch = player.history.find((h) => h.timestamp === ts);
       if (exactMatch) return exactMatch.totalLP;
 
       // Find most recent entry before this timestamp
       const before = player.history
-        .filter(h => new Date(h.timestamp) <= new Date(ts))
+        .filter((h) => new Date(h.timestamp) <= new Date(ts))
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
 
       return before ? before.totalLP : null;
@@ -1057,7 +1187,7 @@ function updateChart() {
       fill: false,
       spanGaps: true,
       borderCapStyle: 'round',
-      borderJoinStyle: 'round'
+      borderJoinStyle: 'round',
     };
   });
 
@@ -1079,7 +1209,7 @@ async function fetchMatchHistory(player, count = 20) {
 
   // Check cache first (valid for 5 minutes)
   const cached = playerMatchCache.get(cacheKey);
-  if (cached && (Date.now() - cached.timestamp) < 5 * 60 * 1000) {
+  if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) {
     return cached.matches;
   }
 
@@ -1097,7 +1227,7 @@ async function fetchMatchHistory(player, count = 20) {
     // Cache the results
     playerMatchCache.set(cacheKey, {
       matches: matches,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     return matches;
@@ -1112,9 +1242,7 @@ function correlateMatchesWithHistory(player, matches) {
   if (!player.history || player.history.length === 0) return player.history;
 
   // Sort matches by timestamp (newest first)
-  const sortedMatches = [...matches].sort((a, b) =>
-    new Date(b.timestamp) - new Date(a.timestamp)
-  );
+  const sortedMatches = [...matches].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
   // For each history entry, try to find the matching game
   return player.history.map((entry, index) => {
@@ -1122,7 +1250,7 @@ function correlateMatchesWithHistory(player, matches) {
 
     // Find the closest match that occurred before this LP entry
     // (LP update happens after game ends)
-    const matchingMatch = sortedMatches.find(match => {
+    const matchingMatch = sortedMatches.find((match) => {
       const matchTime = new Date(match.timestamp);
       const timeDiff = entryTime - matchTime;
       // Match should be within 30 minutes before the LP entry
@@ -1138,7 +1266,7 @@ function correlateMatchesWithHistory(player, matches) {
     return {
       ...entry,
       lpChange: lpChange,
-      match: matchingMatch || null
+      match: matchingMatch || null,
     };
   });
 }
@@ -1156,9 +1284,8 @@ async function showPlayerDetailView(playerIndex) {
 
   const rank = player.soloQueue;
   if (rank) {
-    const winRate = rank.wins + rank.losses > 0
-      ? Math.round((rank.wins / (rank.wins + rank.losses)) * 100)
-      : 0;
+    const winRate =
+      rank.wins + rank.losses > 0 ? Math.round((rank.wins / (rank.wins + rank.losses)) * 100) : 0;
     document.getElementById('detail-player-rank').textContent =
       `${rank.tier} ${rank.rank} · ${rank.leaguePoints} LP · ${winRate}% WR`;
   } else {
@@ -1173,7 +1300,7 @@ async function showPlayerDetailView(playerIndex) {
   document.getElementById('detail-view-overlay').classList.remove('hidden');
 
   // Check if history already has match data from database
-  const hasStoredMatchData = player.history.some(h => h.match);
+  const hasStoredMatchData = player.history.some((h) => h.match);
 
   let enrichedHistory;
   if (hasStoredMatchData) {
@@ -1225,12 +1352,14 @@ function createDetailChart(player, enrichedHistory) {
   const color = PLAYER_COLORS[player.colorIndex];
 
   // Only show entries with actual match data (real games, not filler snapshots)
-  const validHistory = enrichedHistory.filter(h => h.totalLP > 0 && h.match && h.match.champion);
+  const validHistory = enrichedHistory.filter((h) => h.totalLP > 0 && h.match && h.match.champion);
 
-  console.log(`Detail chart: ${validHistory.length} real games (filtered from ${enrichedHistory.length} total entries)`);
+  console.log(
+    `Detail chart: ${validHistory.length} real games (filtered from ${enrichedHistory.length} total entries)`
+  );
 
-  const labels = validHistory.map(h => formatTimestamp(h.timestamp));
-  const data = validHistory.map(h => h.totalLP);
+  const labels = validHistory.map((h) => formatTimestamp(h.timestamp));
+  const data = validHistory.map((h) => h.totalLP);
 
   // Calculate Y-axis range for this player
   const minLP = Math.min(...data);
@@ -1245,43 +1374,45 @@ function createDetailChart(player, enrichedHistory) {
     type: 'line',
     data: {
       labels: labels,
-      datasets: [{
-        label: player.gameName,
-        data: data,
-        borderColor: color + '80', // Semi-transparent line
-        backgroundColor: color + '20',
-        borderWidth: 2, // Thin line connecting games
-        pointRadius: 6,
-        pointHoverRadius: 10,
-        pointBackgroundColor: validHistory.map(h => {
-          // All entries now have match data (filtered above)
-          const isWin = h.match.win === true || h.match.win === 't';
-          return isWin ? '#4caf50' : '#ef5350';
-        }),
-        pointBorderColor: '#fff',
-        pointBorderWidth: 2,
-        tension: 0.2,
-        fill: false
-      }]
+      datasets: [
+        {
+          label: player.gameName,
+          data: data,
+          borderColor: color + '80', // Semi-transparent line
+          backgroundColor: color + '20',
+          borderWidth: 2, // Thin line connecting games
+          pointRadius: 6,
+          pointHoverRadius: 10,
+          pointBackgroundColor: validHistory.map((h) => {
+            // All entries now have match data (filtered above)
+            const isWin = h.match.win === true || h.match.win === 't';
+            return isWin ? '#4caf50' : '#ef5350';
+          }),
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          tension: 0.2,
+          fill: false,
+        },
+      ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: {
-        duration: 300
+        duration: 300,
       },
       interaction: {
         intersect: false,
         mode: 'nearest',
-        axis: 'x'
+        axis: 'x',
       },
       plugins: {
         legend: {
-          display: false
+          display: false,
         },
         tooltip: {
           enabled: false, // Disable default tooltip, use custom HTML
-          external: function(context) {
+          external: function (context) {
             // Get or create tooltip element
             let tooltipEl = document.getElementById('chartjs-tooltip');
             if (!tooltipEl) {
@@ -1353,24 +1484,24 @@ function createDetailChart(player, enrichedHistory) {
             tooltipEl.style.top = position.top + window.scrollY + tooltipModel.caretY - 10 + 'px';
             tooltipEl.style.transform = 'translate(-50%, -100%)';
             tooltipEl.style.pointerEvents = 'none';
-          }
-        }
+          },
+        },
       },
       scales: {
         x: {
           grid: {
-            color: 'rgba(0, 0, 0, 0.08)'
+            color: 'rgba(0, 0, 0, 0.08)',
           },
           ticks: {
             color: '#666',
             font: {
               family: "'Inter', sans-serif",
-              size: 11
+              size: 11,
             },
             maxRotation: 45,
             autoSkip: true,
-            maxTicksLimit: 15
-          }
+            maxTicksLimit: 15,
+          },
         },
         y: {
           min: yMin,
@@ -1384,17 +1515,17 @@ function createDetailChart(player, enrichedHistory) {
             },
             lineWidth: (context) => {
               return context.tick.value % 400 === 0 ? 2 : 1;
-            }
+            },
           },
           ticks: {
             color: '#1a1a1a',
             font: {
               family: "'Inter', sans-serif",
               size: 11,
-              weight: '600'
+              weight: '600',
             },
             stepSize: 100,
-            callback: function(value) {
+            callback: function (value) {
               const rankInfo = totalLPToRank(value);
               if (value % 400 === 0) {
                 return `${rankInfo.tier} ${rankInfo.division}`.toUpperCase();
@@ -1403,17 +1534,20 @@ function createDetailChart(player, enrichedHistory) {
                 return rankInfo.division;
               }
               return '';
-            }
-          }
-        }
-      }
-    }
+            },
+          },
+        },
+      },
+    },
   });
 }
 
 // Handle escape key to close detail view
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !document.getElementById('detail-view-overlay').classList.contains('hidden')) {
+  if (
+    e.key === 'Escape' &&
+    !document.getElementById('detail-view-overlay').classList.contains('hidden')
+  ) {
     closeDetailView();
   }
 });

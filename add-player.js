@@ -4,25 +4,34 @@ const https = require('https');
 const PLAYER = { gameName: 'Bugz', tagLine: '0627', region: 'NA' };
 
 const RANK_VALUES = {
-  'IRON': 0, 'BRONZE': 400, 'SILVER': 800, 'GOLD': 1200,
-  'PLATINUM': 1600, 'EMERALD': 2000, 'DIAMOND': 2400,
-  'MASTER': 2800, 'GRANDMASTER': 3200, 'CHALLENGER': 3600
+  IRON: 0,
+  BRONZE: 400,
+  SILVER: 800,
+  GOLD: 1200,
+  PLATINUM: 1600,
+  EMERALD: 2000,
+  DIAMOND: 2400,
+  MASTER: 2800,
+  GRANDMASTER: 3200,
+  CHALLENGER: 3600,
 };
-const DIVISION_VALUES = { 'IV': 0, 'III': 100, 'II': 200, 'I': 300 };
+const DIVISION_VALUES = { IV: 0, III: 100, II: 200, I: 300 };
 
 function httpsGet(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        if (res.statusCode === 200) {
-          resolve(JSON.parse(data));
-        } else {
-          reject(new Error(`HTTP ${res.statusCode}: ${data}`));
-        }
-      });
-    }).on('error', reject);
+    https
+      .get(url, (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            resolve(JSON.parse(data));
+          } else {
+            reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+          }
+        });
+      })
+      .on('error', reject);
   });
 }
 
@@ -35,12 +44,12 @@ function httpsPost(hostname, path, body) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData)
-      }
+        'Content-Length': Buffer.byteLength(postData),
+      },
     };
     const req = https.request(options, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.on('data', (chunk) => (data += chunk));
       res.on('end', () => resolve({ status: res.statusCode, data }));
     });
     req.on('error', reject);
@@ -72,7 +81,7 @@ async function addPlayer() {
     const tierBase = RANK_VALUES[soloQueue.tier] || 0;
     const divisionValue = ['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(soloQueue.tier)
       ? 0
-      : (DIVISION_VALUES[soloQueue.rank] || 0);
+      : DIVISION_VALUES[soloQueue.rank] || 0;
     const totalLP = tierBase + divisionValue + soloQueue.leaguePoints;
 
     console.log(`Total LP: ${totalLP}`);
@@ -88,7 +97,7 @@ async function addPlayer() {
       rank: soloQueue.rank,
       lp: soloQueue.leaguePoints,
       wins: soloQueue.wins,
-      losses: soloQueue.losses
+      losses: soloQueue.losses,
     };
 
     console.log('\nSaving to database...');
@@ -96,7 +105,6 @@ async function addPlayer() {
     console.log('Response:', result.status, result.data);
 
     console.log('\nDone! Player added successfully.');
-
   } catch (error) {
     console.error('Error:', error.message);
   }

@@ -7,3 +7,6 @@ tmpclaude-*
 
 .vercel
 .env*.local
+
+# Claude reference files
+cc ref/

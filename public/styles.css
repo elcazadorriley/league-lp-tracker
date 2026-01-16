@@ -8,7 +8,11 @@
 }
 
 body {
-  font-family: 'Inter', 'Segoe UI', -apple-system, sans-serif;
+  font-family:
+    'Inter',
+    'Segoe UI',
+    -apple-system,
+    sans-serif;
   background: #f5f5f5;
   color: #1a1a1a;
   min-height: 100vh;
@@ -177,7 +181,6 @@ h2 {
   letter-spacing: 0.5px;
 }
 
-
 .player-card .rank-info {
   display: flex;
   align-items: center;
@@ -228,17 +231,50 @@ h2 {
 }
 
 /* Rank Badge Colors */
-.rank-iron { background: linear-gradient(135deg, #5a5a5a, #7a7a7a); color: #fff; }
-.rank-bronze { background: linear-gradient(135deg, #8b5a2b, #cd7f32); color: #fff; }
-.rank-silver { background: linear-gradient(135deg, #8a9197, #b8c5cc); color: #1a1a1a; }
-.rank-gold { background: linear-gradient(135deg, #c9a227, #f0d050); color: #1a1a1a; }
-.rank-platinum { background: linear-gradient(135deg, #25a08a, #4dd9b4); color: #1a1a1a; }
-.rank-emerald { background: linear-gradient(135deg, #1e9e5c, #3cc47c); color: #fff; }
-.rank-diamond { background: linear-gradient(135deg, #576ace, #8b9ff0); color: #fff; }
-.rank-master { background: linear-gradient(135deg, #8b45a0, #b86bc8); color: #fff; }
-.rank-grandmaster { background: linear-gradient(135deg, #c43b3b, #e86464); color: #fff; }
-.rank-challenger { background: linear-gradient(135deg, #f4c542, #f8e080); color: #1a1a1a; }
-.rank-unranked { background: #e5e5e5; color: #888; }
+.rank-iron {
+  background: linear-gradient(135deg, #5a5a5a, #7a7a7a);
+  color: #fff;
+}
+.rank-bronze {
+  background: linear-gradient(135deg, #8b5a2b, #cd7f32);
+  color: #fff;
+}
+.rank-silver {
+  background: linear-gradient(135deg, #8a9197, #b8c5cc);
+  color: #1a1a1a;
+}
+.rank-gold {
+  background: linear-gradient(135deg, #c9a227, #f0d050);
+  color: #1a1a1a;
+}
+.rank-platinum {
+  background: linear-gradient(135deg, #25a08a, #4dd9b4);
+  color: #1a1a1a;
+}
+.rank-emerald {
+  background: linear-gradient(135deg, #1e9e5c, #3cc47c);
+  color: #fff;
+}
+.rank-diamond {
+  background: linear-gradient(135deg, #576ace, #8b9ff0);
+  color: #fff;
+}
+.rank-master {
+  background: linear-gradient(135deg, #8b45a0, #b86bc8);
+  color: #fff;
+}
+.rank-grandmaster {
+  background: linear-gradient(135deg, #c43b3b, #e86464);
+  color: #fff;
+}
+.rank-challenger {
+  background: linear-gradient(135deg, #f4c542, #f8e080);
+  color: #1a1a1a;
+}
+.rank-unranked {
+  background: #e5e5e5;
+  color: #888;
+}
 
 /* Chart Section */
 .chart-section {
@@ -298,7 +334,6 @@ h2 {
 #view-toggle-btn.active:hover {
   background: #a00d25;
 }
-
 
 /* Timeline Controls */
 .timeline-controls {

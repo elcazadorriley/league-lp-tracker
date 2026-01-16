@@ -1,34 +1,37 @@
 const axios = require('axios');
+const {
+  REGIONS,
+  RANKED_SOLO_QUEUE_ID,
+  RANKED_SOLO_QUEUE_TYPE,
+  DEFAULT_MATCH_COUNT,
+  MAX_MATCH_COUNT,
+  MATCH_FETCH_DELAY_MS,
+} = require('../shared/constants');
 
-const REGIONS = {
-  NA: { platform: 'na1', regional: 'americas' },
-  BR: { platform: 'br1', regional: 'americas' },
-  LAN: { platform: 'la1', regional: 'americas' },
-  LAS: { platform: 'la2', regional: 'americas' },
-  EUW: { platform: 'euw1', regional: 'europe' },
-  EUNE: { platform: 'eun1', regional: 'europe' },
-  TR: { platform: 'tr1', regional: 'europe' },
-  RU: { platform: 'ru', regional: 'europe' },
-  KR: { platform: 'kr', regional: 'asia' },
-  JP: { platform: 'jp1', regional: 'asia' },
-  OCE: { platform: 'oc1', regional: 'sea' },
-  PH: { platform: 'ph2', regional: 'sea' },
-  SG: { platform: 'sg2', regional: 'sea' },
-  TH: { platform: 'th2', regional: 'sea' },
-  TW: { platform: 'tw2', regional: 'sea' },
-  VN: { platform: 'vn2', regional: 'sea' },
-};
-
-// Ranked Solo/Duo queue ID
-const RANKED_SOLO_QUEUE_ID = 420;
-
+/**
+ * Fetches recent ranked match history for a player from Riot API.
+ *
+ * @route GET /api/matches
+ * @query {string} region - Region code (NA, EUW, KR, etc.)
+ * @query {string} gameName - Player's Riot game name
+ * @query {string} tagLine - Player's Riot tag line
+ * @query {number} [count=20] - Number of matches to fetch (max 50)
+ * @returns {Array<Object>} Array of match data objects
+ * @returns {string} returns[].matchId - Unique match identifier
+ * @returns {string} returns[].timestamp - ISO timestamp of match end
+ * @returns {string} returns[].champion - Champion name played
+ * @returns {number} returns[].kills - Kills in the match
+ * @returns {number} returns[].deaths - Deaths in the match
+ * @returns {number} returns[].assists - Assists in the match
+ * @returns {boolean} returns[].win - Whether the player won
+ */
 module.exports = async (req, res) => {
   try {
-    const { region, gameName, tagLine, count = 20 } = req.query;
+    const { region, gameName, tagLine, count = DEFAULT_MATCH_COUNT } = req.query;
 
     if (!region || !gameName || !tagLine) {
       return res.status(400).json({
-        error: 'Missing parameters. Use /api/matches?region=NA&gameName=xxx&tagLine=xxx'
+        error: 'Missing parameters. Use /api/matches?region=NA&gameName=xxx&tagLine=xxx',
       });
     }
 
@@ -42,7 +45,7 @@ module.exports = async (req, res) => {
     // Step 1: Get PUUID from Riot ID
     const accountUrl = `https://${regionConfig.regional}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
     const accountResponse = await axios.get(accountUrl, {
-      headers: { 'X-Riot-Token': RIOT_API_KEY }
+      headers: { 'X-Riot-Token': RIOT_API_KEY },
     });
     const { puuid } = accountResponse.data;
 
@@ -52,8 +55,8 @@ module.exports = async (req, res) => {
       headers: { 'X-Riot-Token': RIOT_API_KEY },
       params: {
         queue: RANKED_SOLO_QUEUE_ID,
-        count: Math.min(parseInt(count), 50) // Cap at 50 matches
-      }
+        count: Math.min(parseInt(count), MAX_MATCH_COUNT),
+      },
     });
     const matchIds = matchIdsResponse.data;
 
@@ -67,11 +70,11 @@ module.exports = async (req, res) => {
       try {
         const matchUrl = `https://${regionConfig.regional}.api.riotgames.com/lol/match/v5/matches/${matchId}`;
         const matchResponse = await axios.get(matchUrl, {
-          headers: { 'X-Riot-Token': RIOT_API_KEY }
+          headers: { 'X-Riot-Token': RIOT_API_KEY },
         });
 
         const matchData = matchResponse.data;
-        const participant = matchData.info.participants.find(p => p.puuid === puuid);
+        const participant = matchData.info.participants.find((p) => p.puuid === puuid);
 
         if (participant) {
           matches.push({
@@ -85,12 +88,12 @@ module.exports = async (req, res) => {
             deaths: participant.deaths,
             assists: participant.assists,
             win: participant.win,
-            queueType: 'RANKED_SOLO_5x5'
+            queueType: RANKED_SOLO_QUEUE_TYPE,
           });
         }
 
         // Small delay to avoid rate limiting
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise((r) => setTimeout(r, MATCH_FETCH_DELAY_MS));
       } catch (matchError) {
         console.error(`Failed to fetch match ${matchId}:`, matchError.message);
         // Continue with other matches
@@ -98,7 +101,6 @@ module.exports = async (req, res) => {
     }
 
     res.json(matches);
-
   } catch (error) {
     console.error('Match API Error:', error.response?.data || error.message);
     if (error.response?.status === 404) {

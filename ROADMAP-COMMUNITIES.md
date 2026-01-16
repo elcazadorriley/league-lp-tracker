@@ -14,6 +14,7 @@ Transform LP Tracker from a single hardcoded friend group into a multi-tenant pl
 ## User Flows
 
 ### New User - Create Community
+
 1. Land on homepage → See "Create Community" / "Join Community" options
 2. Click "Create Community"
 3. Enter community name + create password
@@ -23,12 +24,14 @@ Transform LP Tracker from a single hardcoded friend group into a multi-tenant pl
 7. System fetches initial data and starts tracking
 
 ### Existing User - Join Community
+
 1. Land on homepage → Click "Join Community"
 2. Enter community name + password (provided by admin)
 3. View the community's chart (read-only, no admin panel)
 4. Can filter players, toggle views, etc.
 
 ### Admin - Manage Community
+
 1. Admin panel visible only to community creator
 2. Add new players (Riot ID input)
 3. Remove players
@@ -69,14 +72,14 @@ CREATE INDEX idx_lp_history_community ON lp_history(community_id);
 
 ### New API Endpoints
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/community` | POST | Create new community |
-| `/api/community/join` | POST | Verify password & return session |
-| `/api/community/[id]/players` | GET | List players in community |
-| `/api/community/[id]/players` | POST | Add player (admin only) |
-| `/api/community/[id]/players/[playerId]` | DELETE | Remove player (admin only) |
-| `/api/community/[id]/history` | GET | Get LP history for community |
+| Endpoint                                 | Method | Purpose                          |
+| ---------------------------------------- | ------ | -------------------------------- |
+| `/api/community`                         | POST   | Create new community             |
+| `/api/community/join`                    | POST   | Verify password & return session |
+| `/api/community/[id]/players`            | GET    | List players in community        |
+| `/api/community/[id]/players`            | POST   | Add player (admin only)          |
+| `/api/community/[id]/players/[playerId]` | DELETE | Remove player (admin only)       |
+| `/api/community/[id]/history`            | GET    | Get LP history for community     |
 
 ### Frontend Pages
 
@@ -186,6 +189,7 @@ CREATE INDEX idx_lp_history_community ON lp_history(community_id);
 ## Logistical Details
 
 ### Riot API Rate Limits (Production Key)
+
 - Production keys typically get: **20 requests/sec**, **100 requests/2min**
 - Per player refresh = 3 API calls (Account → Summoner → League)
 - A 10-player community refresh = ~30 API calls
@@ -193,6 +197,7 @@ CREATE INDEX idx_lp_history_community ON lp_history(community_id);
 - Consider: background job queue for refreshes vs on-demand
 
 ### Auto-Refresh Strategy
+
 - Current: 5-minute auto-refresh for single community
 - Multi-tenant: Staggered refresh schedule
   - Option A: Each community refreshes on its own 5-min timer (risky at scale)
@@ -201,6 +206,7 @@ CREATE INDEX idx_lp_history_community ON lp_history(community_id);
 - **Recommendation:** Option C with fallback to hourly background refresh
 
 ### Database Considerations (Supabase Free Tier)
+
 - 500MB storage limit
 - ~1KB per lp_history row
 - 500,000 rows before hitting limit
@@ -208,18 +214,21 @@ CREATE INDEX idx_lp_history_community ON lp_history(community_id);
 - **Need to consider:** Data retention policy, archiving old data
 
 ### Vercel Limits (Hobby Plan)
+
 - 100GB bandwidth/month
 - Serverless function timeout: 10s (hobby) / 60s (pro)
 - Consider: Caching API responses, CDN for static assets
 
 ### Cost Projection
-| Scale | Supabase | Vercel | Notes |
-|-------|----------|--------|-------|
-| 10 communities | Free | Free | Current sweet spot |
-| 100 communities | Free | Free | May need data pruning |
-| 1000+ communities | ~$25/mo | ~$20/mo | Pro tiers needed |
+
+| Scale             | Supabase | Vercel  | Notes                 |
+| ----------------- | -------- | ------- | --------------------- |
+| 10 communities    | Free     | Free    | Current sweet spot    |
+| 100 communities   | Free     | Free    | May need data pruning |
+| 1000+ communities | ~$25/mo  | ~$20/mo | Pro tiers needed      |
 
 ### Riot API Compliance Reminders
+
 - Must display disclaimer (✅ done)
 - Cannot charge users for access
 - Cannot use data for betting/gambling
@@ -227,7 +236,9 @@ CREATE INDEX idx_lp_history_community ON lp_history(community_id);
 - Cannot store raw API responses long-term (only derived data)
 
 ### Player Validation Flow
+
 When admin adds a player:
+
 1. Parse Riot ID (split on #)
 2. Call Account API to verify exists
 3. If 404: Show "Player not found" error
@@ -236,6 +247,7 @@ When admin adds a player:
 6. If ranked: Save initial data point, add to community
 
 ### Edge Cases to Handle
+
 - Player name changes (PUUID stays same, store PUUID?)
 - Player transfers regions
 - Player hasn't played ranked yet this season

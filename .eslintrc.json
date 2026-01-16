@@ -1,0 +1,24 @@
+{
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-console": "off",
+    "prefer-const": "warn",
+    "eqeqeq": ["error", "always"],
+    "curly": ["error", "multi-line"],
+    "no-var": "error"
+  },
+  "globals": {
+    "Chart": "readonly",
+    "PRELOADED_PLAYERS": "readonly"
+  },
+  "ignorePatterns": ["node_modules/", ".vercel/", "*.min.js"]
+}

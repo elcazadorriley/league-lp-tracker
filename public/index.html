@@ -1,75 +1,87 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LP TRACKER // RANKED SURVEILLANCE</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
-</head>
-<body>
-  <div class="container">
-    <h1>LP TRACKER</h1>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LP TRACKER // RANKED SURVEILLANCE</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h1>LP TRACKER</h1>
 
-    <!-- Sidebar: Player Cards -->
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <button id="refresh-all-btn" onclick="refreshAllPlayers()">Refresh All</button>
-        <div id="last-updated" class="last-updated">Last updated: --</div>
-      </div>
-      <div id="player-cards" class="player-cards">
-        <!-- Cards dynamically added -->
-      </div>
-    </div>
-
-    <!-- Main: LP History Chart -->
-    <div class="chart-section">
-      <div class="chart-header">
-        <h2>// LIFTED F-250</h2>
-        <button id="view-toggle-btn" onclick="toggleViewMode()">Overview</button>
-      </div>
-      <div id="chart-container">
-        <canvas id="lp-chart"></canvas>
-      </div>
-      <div class="timeline-controls">
-        <input type="range" id="timeline-slider" min="0" max="100" value="100">
-        <div class="timeline-labels">
-          <span id="timeline-start">--</span>
-          <span id="timeline-end">--</span>
+      <!-- Sidebar: Player Cards -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <button id="refresh-all-btn" onclick="refreshAllPlayers()">Refresh All</button>
+          <div id="last-updated" class="last-updated">Last updated: --</div>
+        </div>
+        <div id="player-cards" class="player-cards">
+          <!-- Cards dynamically added -->
         </div>
       </div>
-      <p class="chart-note">// DRAG CHART OR USE SLIDER TO SCROLL TIMELINE</p>
-    </div>
-  </div>
 
-  <!-- Player Detail View Modal -->
-  <div id="detail-view-overlay" class="detail-overlay hidden">
-    <div class="detail-container">
-      <div class="detail-header">
-        <button id="detail-back-btn" onclick="closeDetailView()">← Back</button>
-        <div class="detail-player-info">
-          <span id="detail-player-name">Player Name</span>
-          <span id="detail-player-rank">Gold II · 45 LP · 52% WR</span>
+      <!-- Main: LP History Chart -->
+      <div class="chart-section">
+        <div class="chart-header">
+          <h2>// LIFTED F-250</h2>
+          <button id="view-toggle-btn" onclick="toggleViewMode()">Overview</button>
         </div>
-        <a id="detail-opgg-link" href="#" target="_blank" class="opgg-link-btn" title="View on OP.GG">
-          OP.GG
-        </a>
+        <div id="chart-container">
+          <canvas id="lp-chart"></canvas>
+        </div>
+        <div class="timeline-controls">
+          <input type="range" id="timeline-slider" min="0" max="100" value="100" />
+          <div class="timeline-labels">
+            <span id="timeline-start">--</span>
+            <span id="timeline-end">--</span>
+          </div>
+        </div>
+        <p class="chart-note">// DRAG CHART OR USE SLIDER TO SCROLL TIMELINE</p>
       </div>
-      <div class="detail-chart-container">
-        <canvas id="detail-chart"></canvas>
-      </div>
-      <p class="detail-note">// HOVER OVER DATA POINTS FOR GAME DETAILS</p>
     </div>
-  </div>
 
-  <footer class="legal-disclaimer">
-    LP Tracker isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
-  </footer>
+    <!-- Player Detail View Modal -->
+    <div id="detail-view-overlay" class="detail-overlay hidden">
+      <div class="detail-container">
+        <div class="detail-header">
+          <button id="detail-back-btn" onclick="closeDetailView()">← Back</button>
+          <div class="detail-player-info">
+            <span id="detail-player-name">Player Name</span>
+            <span id="detail-player-rank">Gold II · 45 LP · 52% WR</span>
+          </div>
+          <a
+            id="detail-opgg-link"
+            href="#"
+            target="_blank"
+            class="opgg-link-btn"
+            title="View on OP.GG"
+          >
+            OP.GG
+          </a>
+        </div>
+        <div class="detail-chart-container">
+          <canvas id="detail-chart"></canvas>
+        </div>
+        <p class="detail-note">// HOVER OVER DATA POINTS FOR GAME DETAILS</p>
+      </div>
+    </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
-  <script src="player-data.js"></script>
-  <script src="app.js"></script>
-</body>
+    <footer class="legal-disclaimer">
+      LP Tracker isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot
+      Games or anyone officially involved in producing or managing Riot Games properties. Riot
+      Games, and all associated properties are trademarks or registered trademarks of Riot Games,
+      Inc.
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+    <script src="player-data.js"></script>
+    <script src="app.js"></script>
+  </body>
 </html>

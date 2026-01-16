@@ -60,19 +60,19 @@ app.get('/api/rank/:region/:gameName/:tagLine', async (req, res) => {
     // Step 1: Get PUUID from Riot ID
     const accountUrl = `https://${regionConfig.regional}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
     const accountResponse = await axios.get(accountUrl, {
-      headers: { 'X-Riot-Token': RIOT_API_KEY }
+      headers: { 'X-Riot-Token': RIOT_API_KEY },
     });
     const { puuid } = accountResponse.data;
 
     // Step 2: Get Ranked Stats (using PUUID directly)
     const rankUrl = `https://${regionConfig.platform}.api.riotgames.com/lol/league/v4/entries/by-puuid/${puuid}`;
     const rankResponse = await axios.get(rankUrl, {
-      headers: { 'X-Riot-Token': RIOT_API_KEY }
+      headers: { 'X-Riot-Token': RIOT_API_KEY },
     });
 
     // Find Solo/Duo queue rank (most common)
-    const soloQueue = rankResponse.data.find(q => q.queueType === 'RANKED_SOLO_5x5');
-    const flexQueue = rankResponse.data.find(q => q.queueType === 'RANKED_FLEX_SR');
+    const soloQueue = rankResponse.data.find((q) => q.queueType === 'RANKED_SOLO_5x5');
+    const flexQueue = rankResponse.data.find((q) => q.queueType === 'RANKED_FLEX_SR');
 
     res.json({
       gameName: accountResponse.data.gameName,
@@ -80,9 +80,8 @@ app.get('/api/rank/:region/:gameName/:tagLine', async (req, res) => {
       region: region.toUpperCase(),
       soloQueue: soloQueue || null,
       flexQueue: flexQueue || null,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
     console.error('API Error:', error.response?.data || error.message);
 

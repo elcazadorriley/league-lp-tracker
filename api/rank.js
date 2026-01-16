@@ -1,30 +1,29 @@
 const axios = require('axios');
+const { REGIONS, RANKED_SOLO_QUEUE_TYPE } = require('../shared/constants');
 
-const REGIONS = {
-  NA: { platform: 'na1', regional: 'americas' },
-  BR: { platform: 'br1', regional: 'americas' },
-  LAN: { platform: 'la1', regional: 'americas' },
-  LAS: { platform: 'la2', regional: 'americas' },
-  EUW: { platform: 'euw1', regional: 'europe' },
-  EUNE: { platform: 'eun1', regional: 'europe' },
-  TR: { platform: 'tr1', regional: 'europe' },
-  RU: { platform: 'ru', regional: 'europe' },
-  KR: { platform: 'kr', regional: 'asia' },
-  JP: { platform: 'jp1', regional: 'asia' },
-  OCE: { platform: 'oc1', regional: 'sea' },
-  PH: { platform: 'ph2', regional: 'sea' },
-  SG: { platform: 'sg2', regional: 'sea' },
-  TH: { platform: 'th2', regional: 'sea' },
-  TW: { platform: 'tw2', regional: 'sea' },
-  VN: { platform: 'vn2', regional: 'sea' },
-};
-
+/**
+ * Fetches current ranked data for a player from Riot API.
+ *
+ * @route GET /api/rank
+ * @query {string} region - Region code (NA, EUW, KR, etc.)
+ * @query {string} gameName - Player's Riot game name
+ * @query {string} tagLine - Player's Riot tag line
+ * @returns {Object} Player rank data including soloQueue and flexQueue info
+ * @returns {string} returns.gameName - Player's game name
+ * @returns {string} returns.tagLine - Player's tag line
+ * @returns {string} returns.region - Region code
+ * @returns {Object|null} returns.soloQueue - Solo/Duo queue rank data
+ * @returns {Object|null} returns.flexQueue - Flex queue rank data
+ * @returns {string} returns.timestamp - ISO timestamp of the request
+ */
 module.exports = async (req, res) => {
   try {
     const { region, gameName, tagLine } = req.query;
 
     if (!region || !gameName || !tagLine) {
-      return res.status(400).json({ error: 'Missing parameters. Use /api/rank/REGION/GAMENAME/TAGLINE' });
+      return res
+        .status(400)
+        .json({ error: 'Missing parameters. Use /api/rank/REGION/GAMENAME/TAGLINE' });
     }
 
     const regionConfig = REGIONS[region.toUpperCase()];
@@ -36,17 +35,17 @@ module.exports = async (req, res) => {
 
     const accountUrl = `https://${regionConfig.regional}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
     const accountResponse = await axios.get(accountUrl, {
-      headers: { 'X-Riot-Token': RIOT_API_KEY }
+      headers: { 'X-Riot-Token': RIOT_API_KEY },
     });
     const { puuid } = accountResponse.data;
 
     const rankUrl = `https://${regionConfig.platform}.api.riotgames.com/lol/league/v4/entries/by-puuid/${puuid}`;
     const rankResponse = await axios.get(rankUrl, {
-      headers: { 'X-Riot-Token': RIOT_API_KEY }
+      headers: { 'X-Riot-Token': RIOT_API_KEY },
     });
 
-    const soloQueue = rankResponse.data.find(q => q.queueType === 'RANKED_SOLO_5x5');
-    const flexQueue = rankResponse.data.find(q => q.queueType === 'RANKED_FLEX_SR');
+    const soloQueue = rankResponse.data.find((q) => q.queueType === RANKED_SOLO_QUEUE_TYPE);
+    const flexQueue = rankResponse.data.find((q) => q.queueType === 'RANKED_FLEX_SR');
 
     res.json({
       gameName: accountResponse.data.gameName,
@@ -54,9 +53,8 @@ module.exports = async (req, res) => {
       region: region.toUpperCase(),
       soloQueue: soloQueue || null,
       flexQueue: flexQueue || null,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
     console.error('API Error:', error.response?.data || error.message);
     if (error.response?.status === 404) {

@@ -206,6 +206,7 @@ async function loadPlayersFromDatabase() {
             losses: entry.losses
           },
           history: [],
+          historyMap: new Map(), // Track by timestamp+LP to dedupe
           colorIndex: playerMap.size % PLAYER_COLORS.length
         });
       }
@@ -229,8 +230,21 @@ async function loadPlayersFromDatabase() {
           };
         }
 
-        playerMap.get(key).history.push(historyEntry);
+        // Deduplicate: prefer entries with match data
+        const dedupKey = `${entry.created_at}_${entry.total_lp}`;
+        const player = playerMap.get(key);
+        const existing = player.historyMap.get(dedupKey);
+
+        if (!existing || (historyEntry.match && !existing.match)) {
+          player.historyMap.set(dedupKey, historyEntry);
+        }
       }
+    });
+
+    // Convert historyMap to history array for each player
+    playerMap.forEach(player => {
+      player.history = Array.from(player.historyMap.values());
+      delete player.historyMap; // Clean up temp map
     });
 
     // Update soloQueue with most recent data for each player

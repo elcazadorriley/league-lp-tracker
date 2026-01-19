@@ -76,7 +76,10 @@ module.exports = async (req, res) => {
         const matchData = matchResponse.data;
         const participant = matchData.info.participants.find((p) => p.puuid === puuid);
 
-        if (participant) {
+        // Skip remakes - they don't award/cost LP
+        const isRemake = participant?.gameEndedInEarlySurrender || matchData.info.gameDuration < 300;
+
+        if (participant && !isRemake) {
           matches.push({
             matchId: matchId,
             timestamp: new Date(matchData.info.gameEndTimestamp).toISOString(),

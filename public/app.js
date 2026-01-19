@@ -536,51 +536,49 @@ async function refreshAllPlayers() {
         const newTotalLP = data.soloQueue
           ? rankToTotalLP(data.soloQueue.tier, data.soloQueue.rank, data.soloQueue.leaguePoints)
           : 0;
-        const lastEntry = player.history[player.history.length - 1];
 
-        if (!lastEntry || lastEntry.totalLP !== newTotalLP) {
-          // Fetch recent matches to find ALL games since last recorded
-          const recentMatches = await fetchRecentMatches(player, 20);
+        // Always fetch recent matches to find ANY games since last recorded
+        // (not just when LP changes - games could net to zero LP change)
+        const recentMatches = await fetchRecentMatches(player, 20);
 
-          // Get set of already recorded match IDs
-          const recordedMatchIds = new Set(
-            player.history.filter(h => h.match?.matchId).map(h => h.match.matchId)
-          );
+        // Get set of already recorded match IDs
+        const recordedMatchIds = new Set(
+          player.history.filter(h => h.match?.matchId).map(h => h.match.matchId)
+        );
 
-          // Filter to only unrecorded matches, sorted oldest first
-          const newMatches = recentMatches
-            .filter(m => m.matchId && !recordedMatchIds.has(m.matchId))
-            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        // Filter to only unrecorded matches, sorted oldest first
+        const newMatches = recentMatches
+          .filter(m => m.matchId && !recordedMatchIds.has(m.matchId))
+          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-          if (newMatches.length > 0) {
-            console.log(`Found ${newMatches.length} new matches for ${player.gameName}`);
+        if (newMatches.length > 0) {
+          console.log(`Found ${newMatches.length} new matches for ${player.gameName}`);
 
-            // Estimate LP for each match by working backwards from current LP
-            // Average LP: +22 for win, -17 for loss (based on observed data)
-            let estimatedLP = newTotalLP;
-            const matchesWithLP = [];
+          // Estimate LP for each match by working backwards from current LP
+          // Average LP: +22 for win, -17 for loss (based on observed data)
+          let estimatedLP = newTotalLP;
+          const matchesWithLP = [];
 
-            // Work backwards from newest to oldest to estimate LP values
-            for (let i = newMatches.length - 1; i >= 0; i--) {
-              const match = newMatches[i];
-              matchesWithLP.unshift({ match, estimatedLP });
-              // Undo the LP change to estimate previous LP
-              if (match.win) {
-                estimatedLP -= 22; // Undo win
-              } else {
-                estimatedLP += 17; // Undo loss
-              }
+          // Work backwards from newest to oldest to estimate LP values
+          for (let i = newMatches.length - 1; i >= 0; i--) {
+            const match = newMatches[i];
+            matchesWithLP.unshift({ match, estimatedLP });
+            // Undo the LP change to estimate previous LP
+            if (match.win) {
+              estimatedLP -= 22; // Undo win
+            } else {
+              estimatedLP += 17; // Undo loss
             }
+          }
 
-            // Save each match in chronological order
-            for (const { match, estimatedLP: lpValue } of matchesWithLP) {
-              player.history.push({
-                timestamp: match.timestamp,
-                totalLP: lpValue,
-                match: match,
-              });
-              await saveToDatabase(player, lpValue, match);
-            }
+          // Save each match in chronological order
+          for (const { match, estimatedLP: lpValue } of matchesWithLP) {
+            player.history.push({
+              timestamp: match.timestamp,
+              totalLP: lpValue,
+              match: match,
+            });
+            await saveToDatabase(player, lpValue, match);
           }
         }
         refreshedCount++;

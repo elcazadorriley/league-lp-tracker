@@ -345,6 +345,18 @@ async function loadPlayersFromDatabase() {
     playerMap.forEach((player) => {
       player.history = Array.from(player.historyMap.values());
       delete player.historyMap; // Clean up temp map
+
+      // Additional deduplication: remove entries with duplicate match_ids
+      const seenMatchIds = new Set();
+      player.history = player.history.filter((entry) => {
+        if (entry.match?.matchId) {
+          if (seenMatchIds.has(entry.match.matchId)) {
+            return false; // Skip duplicate match
+          }
+          seenMatchIds.add(entry.match.matchId);
+        }
+        return true;
+      });
     });
 
     // Update soloQueue with most recent data for each player
@@ -525,14 +537,20 @@ async function refreshAllPlayers() {
           // Fetch the most recent match to get champion/KDA data
           const recentMatch = await fetchMostRecentMatch(player);
 
-          player.history.push({
-            timestamp: data.timestamp,
-            totalLP: newTotalLP,
-            match: recentMatch,
-          });
+          // Check if this match is already recorded (prevent duplicates)
+          const matchAlreadyRecorded = recentMatch?.matchId &&
+            player.history.some(h => h.match?.matchId === recentMatch.matchId);
 
-          // Save to database with match data
-          await saveToDatabase(player, newTotalLP, recentMatch);
+          if (!matchAlreadyRecorded) {
+            player.history.push({
+              timestamp: data.timestamp,
+              totalLP: newTotalLP,
+              match: recentMatch,
+            });
+
+            // Save to database with match data
+            await saveToDatabase(player, newTotalLP, recentMatch);
+          }
         }
         refreshedCount++;
       }
@@ -1353,6 +1371,15 @@ function createDetailChart(player, enrichedHistory) {
 
   // Only show entries with actual match data (real games, not filler snapshots)
   const validHistory = enrichedHistory.filter((h) => h.totalLP > 0 && h.match && h.match.champion);
+
+  // Recalculate LP changes based on filtered history (previous displayed point, not previous in full history)
+  validHistory.forEach((entry, index) => {
+    if (index === 0) {
+      entry.lpChange = 0;
+    } else {
+      entry.lpChange = entry.totalLP - validHistory[index - 1].totalLP;
+    }
+  });
 
   console.log(
     `Detail chart: ${validHistory.length} real games (filtered from ${enrichedHistory.length} total entries)`

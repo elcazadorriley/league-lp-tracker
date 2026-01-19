@@ -10,9 +10,10 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
  * @returns {Array<LPHistoryEntry>} Array of LP history entries
  *
  * @route POST /api/history
- * Creates a new LP history entry.
+ * Creates a new LP history entry with duplicate prevention.
+ * If match_id is provided and already exists for the player, the insert is skipped.
  * @body {LPHistoryEntry} LP history data to save
- * @returns {LPHistoryEntry} The created entry
+ * @returns {LPHistoryEntry} The created entry, or {skipped: true} if duplicate
  *
  * @route DELETE /api/history
  * Deletes LP history entries before a specific date for a player.
@@ -64,6 +65,23 @@ module.exports = async (req, res) => {
 
       if (!body || !body.game_name) {
         return res.status(400).json({ error: 'Missing required fields', received: body });
+      }
+
+      // Server-side duplicate prevention: check if match_id already exists for this player
+      if (body.match_id && body.player_id) {
+        const { data: existing, error: checkError } = await supabase
+          .from('lp_history')
+          .select('id')
+          .eq('player_id', body.player_id)
+          .eq('match_id', body.match_id)
+          .limit(1);
+
+        if (checkError) {
+          console.error('Duplicate check error:', checkError);
+        } else if (existing && existing.length > 0) {
+          console.log(`Duplicate match_id ${body.match_id} for ${body.player_id} - skipping`);
+          return res.json({ skipped: true, reason: 'duplicate_match_id', match_id: body.match_id });
+        }
       }
 
       const { data, error } = await supabase

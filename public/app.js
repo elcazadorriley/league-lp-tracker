@@ -418,7 +418,7 @@ async function saveToDatabase(player, totalLP, matchData = null) {
 }
 
 // Fetch recent ranked matches for a player
-async function fetchRecentMatches(player, count = 20) {
+async function fetchRecentMatches(player, count = 50) {
   try {
     const url = `/api/matches?region=${player.region}&gameName=${encodeURIComponent(player.gameName)}&tagLine=${encodeURIComponent(player.tagLine)}&count=${count}`;
     const response = await fetch(url);
@@ -539,7 +539,8 @@ async function refreshAllPlayers() {
 
         // Always fetch recent matches to find ANY games since last recorded
         // (not just when LP changes - games could net to zero LP change)
-        const recentMatches = await fetchRecentMatches(player, 20);
+        // Fetch 50 to catch gaps from periods of no tracking
+        const recentMatches = await fetchRecentMatches(player, 50);
 
         // Get set of already recorded match IDs
         const recordedMatchIds = new Set(

@@ -398,6 +398,8 @@ async function saveToDatabase(player, totalLP, matchData = null) {
       payload.deaths = matchData.deaths;
       payload.assists = matchData.assists;
       payload.game_win = matchData.win;
+      // Use the actual game timestamp, not current time
+      payload.created_at = matchData.timestamp;
     }
 
     const response = await fetch('/api/history', {

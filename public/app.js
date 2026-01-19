@@ -417,19 +417,24 @@ async function saveToDatabase(player, totalLP, matchData = null) {
   }
 }
 
-// Fetch most recent ranked match for a player
-async function fetchMostRecentMatch(player) {
+// Fetch recent ranked matches for a player
+async function fetchRecentMatches(player, count = 20) {
   try {
-    const url = `/api/matches?region=${player.region}&gameName=${encodeURIComponent(player.gameName)}&tagLine=${encodeURIComponent(player.tagLine)}&count=1`;
+    const url = `/api/matches?region=${player.region}&gameName=${encodeURIComponent(player.gameName)}&tagLine=${encodeURIComponent(player.tagLine)}&count=${count}`;
     const response = await fetch(url);
-    if (!response.ok) return null;
+    if (!response.ok) return [];
 
-    const matches = await response.json();
-    return matches.length > 0 ? matches[0] : null;
+    return await response.json();
   } catch (error) {
-    console.error('Failed to fetch recent match:', error);
-    return null;
+    console.error('Failed to fetch recent matches:', error);
+    return [];
   }
+}
+
+// Fetch most recent ranked match for a player (convenience wrapper)
+async function fetchMostRecentMatch(player) {
+  const matches = await fetchRecentMatches(player, 1);
+  return matches.length > 0 ? matches[0] : null;
 }
 
 // Get current LP for sorting
@@ -534,22 +539,48 @@ async function refreshAllPlayers() {
         const lastEntry = player.history[player.history.length - 1];
 
         if (!lastEntry || lastEntry.totalLP !== newTotalLP) {
-          // Fetch the most recent match to get champion/KDA data
-          const recentMatch = await fetchMostRecentMatch(player);
+          // Fetch recent matches to find ALL games since last recorded
+          const recentMatches = await fetchRecentMatches(player, 20);
 
-          // Check if this match is already recorded (prevent duplicates)
-          const matchAlreadyRecorded = recentMatch?.matchId &&
-            player.history.some(h => h.match?.matchId === recentMatch.matchId);
+          // Get set of already recorded match IDs
+          const recordedMatchIds = new Set(
+            player.history.filter(h => h.match?.matchId).map(h => h.match.matchId)
+          );
 
-          if (!matchAlreadyRecorded) {
-            player.history.push({
-              timestamp: data.timestamp,
-              totalLP: newTotalLP,
-              match: recentMatch,
-            });
+          // Filter to only unrecorded matches, sorted oldest first
+          const newMatches = recentMatches
+            .filter(m => m.matchId && !recordedMatchIds.has(m.matchId))
+            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-            // Save to database with match data
-            await saveToDatabase(player, newTotalLP, recentMatch);
+          if (newMatches.length > 0) {
+            console.log(`Found ${newMatches.length} new matches for ${player.gameName}`);
+
+            // Estimate LP for each match by working backwards from current LP
+            // Average LP: +22 for win, -17 for loss (based on observed data)
+            let estimatedLP = newTotalLP;
+            const matchesWithLP = [];
+
+            // Work backwards from newest to oldest to estimate LP values
+            for (let i = newMatches.length - 1; i >= 0; i--) {
+              const match = newMatches[i];
+              matchesWithLP.unshift({ match, estimatedLP });
+              // Undo the LP change to estimate previous LP
+              if (match.win) {
+                estimatedLP -= 22; // Undo win
+              } else {
+                estimatedLP += 17; // Undo loss
+              }
+            }
+
+            // Save each match in chronological order
+            for (const { match, estimatedLP: lpValue } of matchesWithLP) {
+              player.history.push({
+                timestamp: match.timestamp,
+                totalLP: lpValue,
+                match: match,
+              });
+              await saveToDatabase(player, lpValue, match);
+            }
           }
         }
         refreshedCount++;
